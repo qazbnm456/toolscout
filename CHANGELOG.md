@@ -26,6 +26,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 - `toolscout rubric-batch <taskset> <out-dir>` — batch per-task rubric generation for the rollout
   workflow (generate offline once, then `solve --rubric <that task's rubric>` so a live run's labels vary
   per task instead of carrying the generic skeleton).
+- **The `MCPServer` proxy + observed-example ITL disclosure (ATLAS scaffolding Phase 2).** The planner can
+  define a tiny `MCPServer` proxy (source in its instructions) so a per-server call reads as
+  `srv.add(a=2, b=3)` — pure sugar over `call_tool` (every proxy call still records exactly one canonical
+  `tool_call`; `call_tool` stays the primitive), with `ast.literal_eval` re-nativizing number/list-shaped
+  results across dspy's REPL boundary; `load_server`'s first result carries a one-line proxy hint. For a
+  non-identifier tool name (e.g. `search-web`) the instructions say to call `call_tool` directly. Separately,
+  `describe_tools` now discloses a tool's DECLARED return type (mapped from an MCP tool's `outputSchema`)
+  and ONE example output — observed this run if the tool was already called, else a static example — both
+  `_cap`-bounded so untrusted output stays a single flat line; it records an `examples_included` field only
+  when non-empty (additive within trace/v1).
 
 ### Changed
 

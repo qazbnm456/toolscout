@@ -61,9 +61,15 @@ class Toolspace:
         self.max_describe_batch = int(max_describe_batch if max_describe_batch is not None
                                       else getattr(config, "max_describe_batch", 8))
         self._loaded: set[str] = set()
+        self._proxy_shown: bool = False   # the MCPServer-proxy hint rides only the FIRST load_server
+        self._observed: dict[tuple[str, str], str] = {}  # (server, tool) -> last capped result, this run
 
     def is_loaded(self, server: str) -> bool:
         return server in self._loaded
+
+    def observed_example(self, server: str, tool: str) -> str:
+        """The last successful (capped) result seen for a tool THIS run, or "" — an ITL example."""
+        return self._observed.get((server, tool), "")
 
     def close(self) -> None:
         self.catalog.close()
@@ -95,7 +101,11 @@ def make_load_server_tool(ts: Toolspace) -> Callable[[str], str]:
         ts._loaded.add(server)
         names = ts.catalog.tool_names(server)
         record_tool_call("load_server", args={"server": server}, server=server, ok=True, tool_names=names)
-        return f"Loaded {server!r}. Tools: {names}. Use describe_tools([...]) for signatures."
+        result = f"Loaded {server!r}. Tools: {names}. Use describe_tools([...]) for signatures."
+        if not ts._proxy_shown:   # the moment-of-need proxy nudge, once per run (rides only the output)
+            ts._proxy_shown = True
+            result += "\n" + scaffolding.render_proxy_hint(server)
+        return result
 
     load_server.__name__ = "load_server"
     return load_server
@@ -125,8 +135,14 @@ def make_describe_tools_tool(ts: Toolspace) -> Callable[[list], str]:
         visible = [s for s in specs if ts.is_loaded(s.server)]
         blocked = sorted({s.server for s in specs if not ts.is_loaded(s.server)})
         described = [f"{s.server}:{s.name}" for s in visible]
-        record_tool_call("describe_tools", args={"names": names}, described=described)
-        chunks = [render_tool(s, ts.max_desc_chars) for s in visible]
+        # `examples_included` rides the payload ONLY when non-empty, so an idle feature keeps existing
+        # describe_tools traces byte-identical (additive within trace/v1).
+        examples_included = [f"{s.server}:{s.name}" for s in visible
+                             if ts.observed_example(s.server, s.name)]
+        extra = {"examples_included": examples_included} if examples_included else {}
+        record_tool_call("describe_tools", args={"names": names}, described=described, **extra)
+        chunks = [render_tool(s, ts.max_desc_chars, observed_example=ts.observed_example(s.server, s.name))
+                  for s in visible]
         missing = [n for n in names if n not in found]
         if blocked:
             chunks.append(f"(load these servers first to see their tools: {blocked})")
@@ -180,6 +196,7 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, Optional[dict]], o
             return f"tool {server}:{tool} raised {type(exc).__name__}: {exc}"
         native = to_native(result)
         capped = _cap_result(native)
+        ts._observed[(server, tool)] = capped   # cache the (capped) result as an ITL example, this run
         # Record under BOTH `result` (toolscout's canonical read key) and `raw` (what rlm-kit's generic
         # export_actions reads for a tool action's outcome.output) — so the PTC action dataset carries the
         # tool's output, the TG/PA grounding signal. Same value; additive within trace/v1.

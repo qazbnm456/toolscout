@@ -14,7 +14,7 @@ import pytest
 
 from toolscout import mcp_toolspace as mt
 from toolscout.catalog import ServerInfo, ToolSpec
-from toolscout.mcp_toolspace import McpCatalog, _params_from_schema
+from toolscout.mcp_toolspace import McpCatalog, _params_from_schema, _returns_from_schema
 
 
 # ---- pure helper: the scaffolding mapping ------------------------------------
@@ -45,10 +45,12 @@ def test_params_from_schema_handles_absent_schema():
 # ---- the adapter, over a fake kit catalog ------------------------------------
 
 class _FakeTool:
-    def __init__(self, name, description, schema):
+    def __init__(self, name, description, schema, output_schema=None):
         self.name = name
         self.description = description
         self.inputSchema = schema
+        if output_schema is not None:   # a tool without one models an old SDK (no outputSchema attr)
+            self.outputSchema = output_schema
 
 
 def _greet_tool():
@@ -167,3 +169,33 @@ def test_call_on_unconnected_server_raises():
     cat = McpCatalog(_specs("alpha"), connect="lazy")
     with pytest.raises(RuntimeError, match="not connected"):
         cat.call("alpha", "greet", {"who": "x"})
+
+
+# ---- (iv) outputSchema → a compact return-type hint --------------------------
+
+def test_returns_from_schema_maps_output_types():
+    obj = {"type": "object", "properties": {"ok": {"type": "boolean"}, "n": {"type": "integer"}}}
+    assert _returns_from_schema(obj) == "{ok: bool, n: int}"
+    assert _returns_from_schema({"type": "string"}) == "str"
+    assert _returns_from_schema({"type": "object"}) == "dict"   # object, no properties
+    assert _returns_from_schema(None) == ""
+    assert _returns_from_schema({"no": "type"}) == ""
+
+
+def test_describe_populates_returns_from_output_schema(monkeypatch):
+    typed = _FakeTool("typed", "T", {"type": "object", "properties": {"x": {"type": "integer"}}},
+                      output_schema={"type": "object", "properties": {"ok": {"type": "boolean"}}})
+
+    class _TypedCatalog(_FakeKitCatalog):
+        def _connect(self, name):
+            if name in self._connected:
+                return
+            self._connected[name] = [typed]
+
+    monkeypatch.setattr(mt, "_KitMcpCatalog", _TypedCatalog)
+    cat = McpCatalog(_specs("srv"))
+    try:
+        assert cat.describe(["typed"])[0].returns == "{ok: bool}"   # outputSchema → hint
+    finally:
+        cat.close()
+    assert not hasattr(_greet_tool(), "outputSchema")   # a tool WITHOUT one (old SDK) → returns ""

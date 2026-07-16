@@ -63,6 +63,26 @@ def _params_from_schema(input_schema: Any) -> list[Param]:
     return out
 
 
+def _returns_from_schema(output_schema: Any) -> str:
+    """Map an MCP tool's declared `outputSchema` (JSON Schema) to a compact one-line return hint:
+    an object → `{field: hint, ...}`; a scalar/array → its bare hint; absent/opaque → ``""``."""
+    if not isinstance(output_schema, dict):
+        return ""
+    jtype = output_schema.get("type")
+    if jtype == "object":
+        props = output_schema.get("properties")
+        if isinstance(props, dict) and props:
+            fields = []
+            for k, v in props.items():
+                vt = v.get("type") if isinstance(v, dict) else None
+                fields.append(f"{k}: {_JSON_TYPE.get(vt if isinstance(vt, str) else '', 'Any')}")
+            return "{" + ", ".join(fields) + "}"
+        return "dict"
+    if isinstance(jtype, str):
+        return _JSON_TYPE.get(jtype, "Any")
+    return ""
+
+
 class McpCatalog(Catalog):
     """A `Catalog` over external MCP servers — a thin adapter mapping rlm-kit's `McpCatalog` (the
     raw-tool transport) onto toolscout's scaffolded `ToolSpec` surface. The kit owns spec validation,
@@ -93,7 +113,8 @@ class McpCatalog(Catalog):
             for t in self._mcp.tools(name):  # only CONNECTED servers return tools (ISL discipline)
                 if t.name in wanted:
                     out.append(ToolSpec(server=name, name=t.name, description=t.description or "",
-                                        params=_params_from_schema(getattr(t, "inputSchema", None))))
+                                        params=_params_from_schema(getattr(t, "inputSchema", None)),
+                                        returns=_returns_from_schema(getattr(t, "outputSchema", None))))
         return out
 
     def call(self, server: str, tool: str, args: dict) -> Any:

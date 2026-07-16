@@ -105,3 +105,71 @@ def test_call_tool_failure_records_reason(tmp_path):
     events = load_events(path, "r")
     fail = [e for e in events if e["payload"].get("tool") == "call_tool" and not e["payload"]["ok"]][0]
     assert fail["payload"]["reason"] == "arg_error"
+
+
+# ---- (ii) the MCPServer proxy is transparent to the trace + the moment-of-need hint ----
+
+def test_proxy_call_matches_direct_call_payload(tmp_path):
+    import json
+
+    from rlm_kit import TraceRecorder
+    from rlm_kit.trace import load_events
+
+    from toolscout.scaffolding import PROXY_SOURCE
+
+    def _boundary(r):   # dspy's REPL boundary: json path for list/dict, else str() (None -> "")
+        if isinstance(r, (list, dict)):
+            return json.loads(json.dumps(r))
+        return str(r) if r is not None else ""
+
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r"):
+        ts, tools = _tools()
+        tools["load_server"]("math")
+        direct = tools["call_tool"]("math", "add", {"a": 6, "b": 7})
+        ns = {"call_tool": lambda s, t, a: _boundary(tools["call_tool"](s, t, a))}
+        exec(PROXY_SOURCE, ns)
+        proxied = ns["MCPServer"]("math").add(a=6, b=7)
+    assert direct == 13 and proxied == 13
+    adds = [e["payload"] for e in load_events(path, "r")
+            if e["type"] == "tool_call" and e["payload"]["tool"] == "call_tool"
+            and e["payload"]["args"]["tool"] == "add"]
+    assert len(adds) == 2 and adds[0] == adds[1]   # one direct, one via proxy — identical recorded payload
+
+
+def test_load_server_proxy_hint_rides_output_once(tmp_path):
+    import json
+
+    from rlm_kit import TraceRecorder
+    from rlm_kit.trace import load_events
+
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r"):
+        _ts, tools = _tools()
+        first = tools["load_server"]("math")
+        second = tools["load_server"]("echo")
+    assert "MCPServer" in first and "MCPServer" not in second   # the hint rides the FIRST load only
+    loads = [e["payload"] for e in load_events(path, "r")
+             if e["type"] == "tool_call" and e["payload"]["tool"] == "load_server"]
+    assert all("MCPServer" not in json.dumps(p) for p in loads)  # hint is in the output, not the payload
+
+
+# ---- (iv) observed-example disclosure ----
+
+def test_describe_tools_discloses_observed_example(tmp_path):
+    from rlm_kit import TraceRecorder
+    from rlm_kit.trace import load_events
+
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r"):
+        _ts, tools = _tools()
+        tools["load_server"]("math")
+        before = tools["describe_tools"](["add"])            # no call yet → no example line
+        tools["call_tool"]("math", "add", {"a": 6, "b": 7})  # → 13, cached this run
+        after = tools["describe_tools"](["add"])
+    assert "observed this run" not in before
+    assert "example (observed this run) → 13" in after
+    describes = [e["payload"] for e in load_events(path, "r")
+                 if e["type"] == "tool_call" and e["payload"]["tool"] == "describe_tools"]
+    assert "examples_included" not in describes[0]            # idle → key ABSENT (byte-identical)
+    assert describes[1]["examples_included"] == ["math:add"]  # present once an example exists

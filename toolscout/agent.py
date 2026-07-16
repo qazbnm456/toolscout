@@ -32,8 +32,27 @@ from rlm_kit import (
 
 from .catalog import Catalog, load_catalog
 from .config import SUBSCRIPTION_PREFIX, ToolscoutConfig
+from .scaffolding import PROXY_SOURCE
 from .schema import TaskOutcome
 from .toolspace import Toolspace, build_toolspace_tools
+
+# The MCPServer proxy stanza, built by CONCATENATION (not an f-string) so PROXY_SOURCE — whose docstring
+# contains `{named args}` — reaches the prompt verbatim and never drifts from scaffolding's copy.
+_PROXY_STANZA = (
+    "\nTHE MCPServer PROXY (optional sugar over call_tool, for multi-call orchestration):\n"
+    "Define this class ONCE in your REPL, then call a server's tools as attributes with named args:\n\n"
+    + PROXY_SOURCE
+    # A column-0 COMMENT (not an indented statement): copying the whole block verbatim must not run
+    # `srv = MCPServer(...)` inside the class body (that NameErrors — the class name isn't bound yet).
+    + '\n# usage:  srv = MCPServer("math"); total = srv.add(a=2, b=3)'
+    '   # == call_tool("math", "add", {"a": 2, "b": 3})\n\n'
+    "- Pure SUGAR: every `srv.tool(...)` routes through `call_tool`, so each call is still recorded as\n"
+    "  exactly ONE tool_call — `call_tool` stays the primitive. Use whichever reads clearer.\n"
+    "- The proxy re-nativizes number/list-shaped results; a DIRECT `call_tool` may instead hand you a\n"
+    "  string — if you need the Python value, `ast.literal_eval` it yourself.\n"
+    "- If a tool's name is NOT a valid Python identifier (e.g. `search-web`), the attribute form can't\n"
+    '  express it — call `call_tool(server, "search-web", {...})` directly.\n'
+)
 
 INSTRUCTIONS = """You solve ONE task by using tools from a possibly LARGE toolspace of MCP servers, and
 you emit a structured outcome. You are the PLANNER: a small, cheap model that DISCOVERS the toolspace
@@ -53,7 +72,8 @@ YOUR FOUR META-TOOLS (this is the ONLY way to reach the toolspace):
 - `load_server(name)` — MATERIALIZE one server so its tools become usable; returns its tool NAMES.
 - `describe_tools([names])` — the full signatures/params for a FEW named tools, just-in-time.
 - `call_tool(server, tool, args)` — invoke a tool; returns a NATIVE Python value. `args` is a dict of
-  named parameters, e.g. `call_tool("math", "add", {"a": 2, "b": 3})`.
+  named parameters, e.g. `call_tool("math", "add", {"a": 2, "b": 3})`. For several calls to one server,
+  the MCPServer proxy (defined at the end of these instructions) is terser sugar over this.
 - `llm_query` / `llm_query_batched([...])` — the SPECIALIST: an expensive brain for a subtle sub-question.
   Feed it a SHORT distilled question; batch independent ones. Not for bulk toolspace text.
 - `read_skill(name)` — the tactics KB (the <available_skills> catalog injected above).
@@ -63,8 +83,9 @@ WORKFLOW — discover → materialize → describe → call/compute → verify �
 2. ISL: `load_server(name)` for each one you chose — and ONLY those. Loading everything defeats the point.
 3. ITL: `describe_tools([...])` for the specific tools you intend to call — a few at a time, not a whole
    server. Read the signatures; note required params and types.
-4. PTC: `call_tool(...)`, bind the result to a variable, and COMPUTE on it in the REPL (chain calls, do
-   the arithmetic/parsing yourself). Do not re-call a tool just to re-read a value you already have.
+4. PTC: `call_tool(...)` (or the MCPServer proxy — `srv.tool(**args)`), bind the result to a variable,
+   and COMPUTE on it in the REPL (chain calls, do the arithmetic/parsing yourself). Do not re-call a
+   tool just to re-read a value you already have.
 5. If a call returns an error STRING (bad server/tool/arg), read it and fix your next call — one focused
    correction, not a thrash. Escalate a genuinely subtle sub-question to the specialist at most once.
 6. SUBMIT the `outcome` (JUDGEMENT + CITATIONS only):
@@ -81,7 +102,7 @@ HARD RULES — do not violate:
   the system re-sources both from the trace and flags fabrication on read.
 - Load and describe NARROWLY (ISL/ITL): only the servers/tools the task needs. Small context, sharp calls.
 - Reach an answer in budget. You have a HARD iteration cap; a run that explores forever and never SUBMITs
-  ships nothing — the worst outcome. Discover what you need, compute, verify, submit."""
+  ships nothing — the worst outcome. Discover what you need, compute, verify, submit.""" + _PROXY_STANZA
 
 _JUDGE_HINT = ("""
 - `rubric_judge(draft)` — an OPT-IN self-check: pass your intended answer + which tools backed each part,

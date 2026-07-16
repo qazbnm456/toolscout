@@ -37,6 +37,10 @@ class ToolSpec:
     description: str = ""
     params: list[Param] = field(default_factory=list)
     invoke: Optional[Callable[[dict], Any]] = None  # (args_dict) -> result; None for a not-yet-materialized MCP tool
+    # Appended AFTER invoke on purpose: demo_catalog constructs ToolSpec positionally with invoke 5th,
+    # so inserting these earlier would rebind those positions. Both are optional ITL disclosure hints.
+    returns: str = ""          # a compact return-type hint, e.g. from an MCP tool's declared outputSchema
+    example_output: str = ""   # a static example of the tool's output, when the catalog supplies one
 
 
 @dataclass(frozen=True)

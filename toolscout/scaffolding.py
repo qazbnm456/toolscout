@@ -37,8 +37,15 @@ def signature(tool: ToolSpec) -> str:
     return f"{tool.name}({', '.join(parts)})"
 
 
-def render_tool(tool: ToolSpec, max_chars: int = 1200) -> str:
-    """Full ITL disclosure for one tool: signature + capped description + per-param notes."""
+RETURNS_CAP = 200   # cap for a tool's declared return-type hint
+EXAMPLE_CAP = 300   # cap for an example output line (observed or static)
+
+
+def render_tool(tool: ToolSpec, max_chars: int = 1200, *, observed_example: str = "") -> str:
+    """Full ITL disclosure for one tool: signature + capped description + per-param notes, and — when
+    available — a declared return-type hint and ONE example output (observed this run if given, else the
+    catalog's static example). `returns`/example are UNTRUSTED (server schema / tool output), so `_cap`'s
+    whitespace-collapse renders each as a single flat line — never a fake schema block or code fence."""
     lines = [f"{tool.server}:{tool.name}  →  {signature(tool)}"]
     if tool.description:
         lines.append(f"    {_cap(tool.description, max_chars)}")
@@ -47,6 +54,14 @@ def render_tool(tool: ToolSpec, max_chars: int = 1200) -> str:
         if p.description:
             note += f": {_cap(p.description, 200)}"
         lines.append(note)
+    if tool.returns:
+        # "declared": on the MCP path call_tool returns result_text-flattened TEXT, which may not match
+        # the tool's declared structured schema — this hint describes the schema, not the runtime type.
+        lines.append(f"    declared returns: {_cap(tool.returns, RETURNS_CAP)}")
+    if observed_example:
+        lines.append(f"    example (observed this run) → {_cap(observed_example, EXAMPLE_CAP)}")
+    elif tool.example_output:
+        lines.append(f"    example → {_cap(tool.example_output, EXAMPLE_CAP)}")
     return "\n".join(lines)
 
 
@@ -55,6 +70,42 @@ def render_server_index(servers: list[ServerInfo], max_chars: int = 1200) -> str
     if not servers:
         return "(no servers configured)"
     return "\n".join(f"- {s.name}: {_cap(s.description, max_chars)}" for s in servers)
+
+
+# A tiny sandbox-side proxy the planner defines (from its instructions) so a multi-call orchestration
+# reads as `srv = MCPServer("math"); srv.add(a=2, b=3)` instead of repeated call_tool(...). It is pure
+# SUGAR: every attribute call routes through the real `call_tool` meta-tool, so each invocation still
+# records exactly one canonical `tool_call`. `_name` lives in __dict__ (so __getattr__ never recurses)
+# and a leading-underscore guard stops repr/inspect probes from dispatching a spurious call. It
+# re-nativizes a number/list-shaped TEXT result (dspy's REPL boundary str()s non-list/dict tool returns)
+# — the same best-effort semantics as `to_native`; an error STRING fails literal_eval and passes through.
+PROXY_SOURCE = '''\
+class MCPServer:
+    """srv.tool(**named_args) == call_tool("<server>", "tool", {named args}). Named arguments ONLY.
+    Sugar over call_tool — every call still routes through it. Define once, reuse per server."""
+    def __init__(self, name):
+        self._name = name
+    def __getattr__(self, tool):
+        if tool.startswith("_"):
+            raise AttributeError(tool)
+        def _invoke(**kwargs):
+            out = call_tool(self._name, tool, kwargs)
+            if isinstance(out, str):
+                try:
+                    import ast
+                    return ast.literal_eval(out)
+                except (ValueError, SyntaxError):
+                    pass
+            return out
+        return _invoke
+'''
+
+
+def render_proxy_hint(server: str) -> str:
+    """A one-line moment-of-need nudge appended to the FIRST load_server result: the MCPServer proxy
+    (defined from the instructions) makes per-server calls read as `srv.<tool>(<named args>)`."""
+    return (f"Tip: define the MCPServer proxy from your instructions, then "
+            f"`srv = MCPServer({server!r}); srv.<tool>(<named args>)` — sugar over call_tool.")
 
 
 class ArgError(ValueError):
