@@ -39,6 +39,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ### Changed
 
+- **`load_server` surfaces a connect failure as fixable TEXT, and connect-lazy is per-transport.**
+  `load_server` now guards the catalog connect: a wedged/refused server returns a short `connect_error`
+  message (recorded `ok=False, reason="connect_error"`) instead of raising into the RLM loop — toolscout's
+  "errors are text, never a raise" invariant. This pairs with the kit's per-transport `connect="lazy"` (a
+  URL server defers and is bounded/cancel-reaped; a stdio server stays eager); the docs drop the prior
+  blanket "lazy spawns a subprocess mid-loop that can hang dspy" wording. The exception text in the
+  `connect_error` path — and the pre-existing `backend_error` path — is now length-capped in both the
+  returned text and the recorded `error` payload: a server-authored error message is untrusted LM
+  context, so it obeys toolscout's "all rendered text is length-capped" invariant.
 - The config judge-sentinel guard now fires ONLY when the judge is ENABLED (`TS_ENABLE_JUDGE=1`). With the
   judge off (the default) its model is inert, so a Claude-subscription planner+specialist is a valid
   config — surfaced by the first live subscription run against a real MCP server.

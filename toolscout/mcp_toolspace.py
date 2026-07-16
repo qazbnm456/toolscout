@@ -18,10 +18,12 @@ nothing), so this drops the copied bridge and keeps only the scaffolding MAPPING
 This module records NOTHING itself — the single canonical `tool_call` is emitted by the `call_tool`
 meta-tool in `toolspace.py`; the kit catalog is a pure transport too.
 
-CONNECTION SAFETY: the kit connects EAGER (host-side, pre-run) by default — a live subprocess spawn
-INSIDE the RLM's `aforward` loop can hang dspy/asyncio (a hard-won live-run lesson). `connect="lazy"`
-defers a server's connection to its first `load`, which spawns a subprocess mid-loop; keep it opt-in
-and experimental until a live-safety spike clears it.
+CONNECTION SAFETY: the kit connects EAGER (host-side, pre-run) by default. `connect="lazy"` is
+PER-TRANSPORT in the kit: a URL (streamable-HTTP) server defers its connect to first `load` — safe
+mid-run (the handshake runs on the connection's own thread+loop, the caller's wait is timeout-bounded,
+and a wedged connect is cancelled+reaped by the kit) — while a stdio server still connects eagerly (a
+local subprocess spawn stays pre-run). `load_server` surfaces a connect failure as fixable text, never a
+raise into the loop. Opt-in/experimental.
 
 SECURITY: MCP servers execute HOST-SIDE (outside the sandbox); a stdio server is a spawned subprocess.
 Treat the server as a TRUSTED dependency and its output as UNTRUSTED LM context (a prompt-injection

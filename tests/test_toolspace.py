@@ -173,3 +173,80 @@ def test_describe_tools_discloses_observed_example(tmp_path):
                  if e["type"] == "tool_call" and e["payload"]["tool"] == "describe_tools"]
     assert "examples_included" not in describes[0]            # idle → key ABSENT (byte-identical)
     assert describes[1]["examples_included"] == ["math:add"]  # present once an example exists
+
+
+# ---- (D) a lazy connect failure surfaces as fixable TEXT, never a raise into the loop ----
+
+def test_load_server_surfaces_connect_error_as_text(tmp_path):
+    from rlm_kit import TraceRecorder
+    from rlm_kit.trace import load_events
+
+    from toolscout.catalog import Catalog, ServerInfo
+
+    class _RaisingCatalog(Catalog):
+        def servers(self):
+            return [ServerInfo("remote", "d")]
+
+        def has_server(self, s):
+            return s == "remote"
+
+        def load(self, s):
+            raise RuntimeError("connection refused")   # e.g. a wedged/refused lazy HTTP connect
+
+        def tool_names(self, s):
+            return []
+
+        def describe(self, names):
+            return []
+
+        def call(self, s, t, a):
+            return None
+
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r"):
+        ts = Toolspace(_RaisingCatalog(), ToolscoutConfig(main_model="x", sub_model="y"))
+        tools = {t.__name__: t for t in build_toolspace_tools(ts)}
+        out = tools["load_server"]("remote")
+    assert "Could not connect to server 'remote'" in out and "connection refused" in out
+    assert not ts.is_loaded("remote")   # a failed connect must NOT mark the server loaded
+    ev = [e["payload"] for e in load_events(path, "r")
+          if e["type"] == "tool_call" and e["payload"]["tool"] == "load_server"][0]
+    assert ev["ok"] is False and ev["reason"] == "connect_error"
+
+
+def test_load_server_connect_error_text_is_capped(tmp_path):
+    # a server-authored error message is UNTRUSTED LM context — a huge one must be length-capped in
+    # BOTH the returned text and the recorded `error` payload, never flooded verbatim into the prompt.
+    from rlm_kit import TraceRecorder
+    from rlm_kit.trace import load_events
+
+    from toolscout.catalog import Catalog, ServerInfo
+
+    class _FloodCatalog(Catalog):
+        def servers(self):
+            return [ServerInfo("remote", "d")]
+
+        def has_server(self, s):
+            return s == "remote"
+
+        def load(self, s):
+            raise RuntimeError("X" * 10_000)   # a malicious/verbose server error
+
+        def tool_names(self, s):
+            return []
+
+        def describe(self, names):
+            return []
+
+        def call(self, s, t, a):
+            return None
+
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r"):
+        ts = Toolspace(_FloodCatalog(), ToolscoutConfig(main_model="x", sub_model="y"))
+        tools = {t.__name__: t for t in build_toolspace_tools(ts)}
+        out = tools["load_server"]("remote")
+    assert "…" in out and out.count("X") < 400   # capped, not 10k chars of untrusted text
+    ev = [e["payload"] for e in load_events(path, "r")
+          if e["type"] == "tool_call" and e["payload"]["tool"] == "load_server"][0]
+    assert len(ev["error"]) <= 300 and ev["error"].endswith("…")

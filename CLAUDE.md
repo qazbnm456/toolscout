@@ -122,8 +122,11 @@ One companion rule ships under `.claude/rules/`:
   The `McpCatalog` (`mcp_toolspace.py`) is a thin ADAPTER over rlm-kit's public `rlm_kit.mcp.McpCatalog`
   (the multi-server transport — the kit owns the async→sync bridge, connect lifecycle, and hang-safety);
   toolscout only maps its raw MCP tools onto the scaffolded `ToolSpec` shape. The kit connects each server
-  host-side BEFORE the run (`connect="eager"`, the default and proven path) — a live subprocess spawn
-  INSIDE the RLM/asyncio loop can hang dspy (`connect="lazy"` is opt-in/experimental for that reason).
+  host-side BEFORE the run (`connect="eager"`, the default and proven path). The kit's `connect="lazy"` is
+  PER-TRANSPORT: a URL (streamable-HTTP) server defers its connect to first `load_server` (bounded + the
+  wedged connect cancel-reaped by the kit), while a stdio server still connects eagerly (a local spawn
+  stays pre-run). `load_server` wraps the connect so a failure surfaces as fixable TEXT (a `connect_error`
+  `tool_call`), never a raise into the loop; `connect="lazy"` stays opt-in/experimental.
   Server-authored names, descriptions, and
   schemas — AND tool outputs — are **UNTRUSTED** LM context (a prompt-injection surface, like a fetched
   page); all rendered text is length-capped (`max_desc_chars`, `scaffolding._cap`). Each MCP call records

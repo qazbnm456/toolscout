@@ -44,6 +44,14 @@ def _cap_result(value, limit: int = 4000) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+def _exc_text(exc: BaseException, limit: int = 300) -> str:
+    """A bounded `Type: message` for an exception whose message may be UNTRUSTED — a server-authored
+    error string is LM context, a prompt-injection surface, so it obeys toolscout's "all rendered text
+    is length-capped" invariant (mirrors the kit's own `str(exc)[:N]` cap in `_make_tool`)."""
+    text = f"{type(exc).__name__}: {exc}"
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 class Toolspace:
     """Binds a `Catalog` + config into the state the four meta-tools share (the ISL 'loaded' set).
 
@@ -97,7 +105,13 @@ def make_load_server_tool(ts: Toolspace) -> Callable[[str], str]:
             names = [s.name for s in ts.catalog.servers()]
             record_tool_call("load_server", args={"server": server}, server=server, ok=False)
             return unknown_server_error(server, names)
-        ts.catalog.load(server)
+        try:
+            ts.catalog.load(server)   # under connect="lazy" this CONNECTS now — a wedged/refused server
+        except Exception as exc:      # must surface as fixable TEXT, not raise into the RLM loop
+            record_tool_call("load_server", args={"server": server}, server=server, ok=False,
+                             reason="connect_error", error=_exc_text(exc))
+            return (f"Could not connect to server {server!r}: {_exc_text(exc)}. "
+                    f"Try another server if this repeats.")
         ts._loaded.add(server)
         names = ts.catalog.tool_names(server)
         record_tool_call("load_server", args={"server": server}, server=server, ok=True, tool_names=names)
@@ -192,8 +206,8 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, Optional[dict]], o
             result = ts.catalog.call(server, tool, coerced)
         except Exception as exc:  # a backend/tool failure is data the planner recovers from, not a crash
             record_tool_call("call_tool", args={"tool": tool, "args": coerced}, server=server, ok=False,
-                             reason="backend_error", error=f"{type(exc).__name__}: {exc}")
-            return f"tool {server}:{tool} raised {type(exc).__name__}: {exc}"
+                             reason="backend_error", error=_exc_text(exc))
+            return f"tool {server}:{tool} raised {_exc_text(exc)}"
         native = to_native(result)
         capped = _cap_result(native)
         ts._observed[(server, tool)] = capped   # cache the (capped) result as an ITL example, this run

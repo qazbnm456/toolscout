@@ -56,8 +56,9 @@ class ToolscoutConfig:
     # Path to a JSON list of MCP server specs: [{"name": "...", "description": "...",
     # "command"/"args"/"env" (stdio) | "url" (streamable-HTTP)}]. Unset → a small built-in demo catalog.
     toolspace_path: str = ""
-    # Eager-connect (host-side, pre-run, hang-safe) then lazy-DISCLOSE schemas via the meta-tools.
-    # True lazy mid-run CONNECTION is deferred (a live subprocess spawn inside aforward can hang).
+    # Eager-connect (host-side, pre-run) then lazy-DISCLOSE schemas via the meta-tools. The kit's
+    # connect="lazy" is per-transport: a URL server defers its connect (bounded + cancel-reaped), a
+    # stdio server stays eager (a local spawn stays pre-run); load_server surfaces a failure as text.
     connect: str = "eager"          # "eager" (default, proven) | "lazy" (opt-in, experimental)
     # MCP transport bound: per-server connect, per-call, and close/join timeout. A DEDICATED knob — never
     # the judge's timeout (a snappy-judge setting must not make a slow MCP server fail at connect).
