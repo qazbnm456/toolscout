@@ -13,6 +13,7 @@ resolution-markers = [
 [manifest]
 members = [
     "toolscout",
+    "toolscout-eval",
     "toolscout-studio",
 ]
 
@@ -2527,6 +2528,30 @@ dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
 ]
+
+[[package]]
+name = "toolscout-eval"
+version = "0.1.0"
+source = { editable = "eval" }
+dependencies = [
+    { name = "toolscout" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+]
+judge = [
+    { name = "openai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "openai", marker = "extra == 'judge'", specifier = ">=1.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "toolscout", editable = "." },
+]
+provides-extras = ["judge", "dev"]
 
 [[package]]
 name = "toolscout-studio"

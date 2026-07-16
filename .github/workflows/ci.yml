@@ -39,9 +39,10 @@ jobs:
         with:
           enable-cache: true
 
-      # --all-packages brings in the studio workspace member, --all-extras every optional surface
-      # (judge/observe/subscription + the studio dev extra) so both suites resolve in one env.
-      - name: Sync (core + studio workspace)
+      # --all-packages brings in BOTH workspace members (studio + eval), --all-extras every optional
+      # surface (judge/observe/subscription + the studio/eval dev extras) so all suites resolve in one
+      # env. The "Eval harness tests" step below depends on --all-packages installing toolscout-eval.
+      - name: Sync (core + studio + eval workspaces)
         run: uv sync --all-extras --all-packages --python ${{ matrix.python-version }}
 
       - name: Core tests (meta-tools + read path + forward loop)
@@ -49,6 +50,9 @@ jobs:
 
       - name: Studio console tests
         run: uv run --python ${{ matrix.python-version }} python -m pytest studio/tests
+
+      - name: Eval harness tests
+        run: uv run --python ${{ matrix.python-version }} python -m pytest eval/tests
 
       # The studio frontend's pure/factory cores carry assert-based node tests; the ubuntu runner ships
       # node, so gate them here too (a no-op if the studio ships no *.test.js).

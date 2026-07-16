@@ -40,7 +40,7 @@ rlm-kit = { git = "https://github.com/qazbnm456/rlm-kit.git", branch = "main" }
 # `live` optional extra, so a harness-only install never pulls it. The external git source (rlm-kit)
 # lives here at the workspace root and applies to every member.
 [tool.uv.workspace]
-members = ["studio"]
+members = ["studio", "eval"]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]

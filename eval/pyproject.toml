@@ -1,0 +1,34 @@
+[project]
+name = "toolscout-eval"
+version = "0.1.0"
+description = "Offline, reward-free evaluation harness for toolscout — score recorded runs against the ATLAS 4-category (TF/TA/TG/PA, 0-10) LLM-as-judge and render a terminal scorecard. A one-way reader of the trace contract; never a reward."
+requires-python = ">=3.11"  # matches the sibling toolscout (>=3.11); keeps `uv run` resolvable
+# toolscout is a CORE dependency (unlike studio, which gates it behind a `live` extra): the score path
+# imports `toolscout.assemble` / `toolscout.schema` / `toolscout.rubric` directly for every mode, so it
+# must always resolve. pydantic + rlm-kit (trace readers, make_model_tool) arrive as toolscout core deps.
+dependencies = [
+    "toolscout",
+]
+
+[project.optional-dependencies]
+# The real (live) judge talks an OpenAI-compatible endpoint; the stub judge needs nothing.
+judge = ["openai>=1.0"]
+dev = ["pytest>=8"]
+
+# In-repo: toolscout is the workspace ROOT package (eval/ is a member of it). External sources (rlm-kit)
+# are declared at the workspace root's pyproject and apply here transitively.
+[tool.uv.sources]
+toolscout = { workspace = true }
+
+[project.scripts]
+toolscout-eval = "toolscout_eval.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["toolscout_eval"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
