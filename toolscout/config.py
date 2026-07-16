@@ -104,6 +104,7 @@ class ToolscoutConfig:
             )
         base_url = os.getenv("TS_BASE_URL")
         api_key = os.getenv("TS_API_KEY")
+        enable_judge = _env_bool("TS_ENABLE_JUDGE", False)
         judge = os.getenv("TS_JUDGE_LM") or specialist
         # The judge tool is a SEPARATE OpenAI-compatible client (judge_tool._judge_chat → rlm-kit
         # make_model_tool), NOT the subscription Agent SDK adapter — so its model can NEVER be a
@@ -111,7 +112,10 @@ class ToolscoutConfig:
         # EXPLICIT TS_JUDGE_LM sentinel, or the DEFAULT inheriting a subscription TS_SUB_LM when
         # TS_JUDGE_LM is unset. Fail LOUD + actionable here rather than shipping a bogus model id to the
         # judge endpoint mid-trajectory (which would burn the one hard-budget attempt, max_retries=1).
-        if judge.startswith(SUBSCRIPTION_PREFIX):
+        # ONLY when the judge is actually ENABLED: with the judge off (the default) its model is inert, so
+        # a subscription planner+specialist must NOT be blocked by the judge default inheriting the
+        # sentinel (a common, valid config — surfaced by the first live subscription run).
+        if enable_judge and judge.startswith(SUBSCRIPTION_PREFIX):
             inherited = not os.getenv("TS_JUDGE_LM")
             raise ValueError(
                 "The rubric judge cannot run on a Claude Pro/Max subscription — it is a separate "
@@ -134,7 +138,7 @@ class ToolscoutConfig:
             mcp_timeout=float(os.getenv("TS_MCP_TIMEOUT", "60")),
             max_desc_chars=int(os.getenv("TS_MAX_DESC_CHARS", "1200")),
             max_describe_batch=int(os.getenv("TS_MAX_DESCRIBE_BATCH", "8")),
-            enable_judge=_env_bool("TS_ENABLE_JUDGE", False),
+            enable_judge=enable_judge,
             judge_model=judge,
             judge_base_url=os.getenv("TS_JUDGE_BASE_URL") or base_url,
             judge_api_key=os.getenv("TS_JUDGE_API_KEY") or api_key,

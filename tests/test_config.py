@@ -41,20 +41,31 @@ def test_from_env_roles_and_defaults(monkeypatch):
     assert cfg.max_iterations == 30 and cfg.max_desc_chars == 1200
 
 
-def test_judge_may_not_inherit_a_subscription_specialist(monkeypatch):
+def test_enabled_judge_may_not_inherit_a_subscription_specialist(monkeypatch):
     _clear_ts_env(monkeypatch)
     monkeypatch.setenv("TS_ROOT_LM", f"{SUBSCRIPTION_PREFIX}claude-sonnet-5")
     monkeypatch.setenv("TS_SUB_LM", f"{SUBSCRIPTION_PREFIX}claude-fable-5")
-    # TS_JUDGE_LM unset → judge would inherit the subscription specialist → must fail LOUD.
+    monkeypatch.setenv("TS_ENABLE_JUDGE", "1")  # judge ON + inherits the subscription specialist → LOUD
     with pytest.raises(ValueError, match="subscription"):
         ToolscoutConfig.from_env()
 
 
-def test_explicit_judge_sentinel_is_rejected(monkeypatch):
+def test_subscription_planner_with_judge_off_is_allowed(monkeypatch):
+    """With the judge OFF (the default), its model is inert — a subscription planner+specialist must NOT
+    be blocked by the judge default inheriting the sentinel (the common live-run config)."""
+    _clear_ts_env(monkeypatch)
+    monkeypatch.setenv("TS_ROOT_LM", f"{SUBSCRIPTION_PREFIX}claude-sonnet-5")
+    monkeypatch.setenv("TS_SUB_LM", f"{SUBSCRIPTION_PREFIX}claude-sonnet-5")
+    cfg = ToolscoutConfig.from_env()  # no raise
+    assert cfg.enable_judge is False and cfg.main_model.startswith(SUBSCRIPTION_PREFIX)
+
+
+def test_explicit_enabled_judge_sentinel_is_rejected(monkeypatch):
     _clear_ts_env(monkeypatch)
     monkeypatch.setenv("TS_ROOT_LM", "openai/planner")
     monkeypatch.setenv("TS_SUB_LM", "openai/specialist")
     monkeypatch.setenv("TS_JUDGE_LM", f"{SUBSCRIPTION_PREFIX}claude-sonnet-5")
+    monkeypatch.setenv("TS_ENABLE_JUDGE", "1")
     with pytest.raises(ValueError, match="sentinel"):
         ToolscoutConfig.from_env()
 
