@@ -139,6 +139,23 @@ def test_replay_of_truncated_trace_still_ends_with_completed(tmp_path, monkeypat
     assert body.rstrip().endswith("data: {}")               # and it is the LAST event
 
 
+def test_replay_delay_is_bounded(tmp_path, monkeypatch):
+    # the SSE pacing `delay` is bounded [0, 10]: an out-of-range value 422s at validation (before the
+    # handler runs), so a huge value can't park a streaming connection. Regression guard — the old
+    # unbounded param accepted `?delay=1e9` (200) and slept ~forever between events.
+    monkeypatch.setattr(appmod, "ARTIFACTS", tmp_path)
+    assert client.get("/v1/runs/r/events?delay=1e9").status_code == 422   # over le=10 → rejected, not parked
+    assert client.get("/v1/runs/r/events?delay=-1").status_code == 422    # under ge=0 → rejected
+    # an in-range delay (the value the replay UI passes) is accepted and still terminates cleanly
+    _write_trace(tmp_path, [
+        {"type": "run_start", "step_id": 0, "payload": {"meta": {"planner": "P"}}},
+        {"type": "result", "step_id": 1, "payload": {"output": {"answer": "ok"}}}])
+    with client.stream("GET", "/v1/runs/r/events?delay=0.15") as resp:
+        assert resp.status_code == 200
+        body = "".join(resp.iter_text())
+    assert body.count("event: task.run.completed") == 1
+
+
 # ---- /v1/solve: worker-thread → queue → SSE glue (run_live stubbed) ----
 
 def test_solve_streams_live_events_then_completed(tmp_path, monkeypatch):
