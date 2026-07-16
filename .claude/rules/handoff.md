@@ -5,8 +5,7 @@ about to compact, preserve only what they do NOT already hold:
 
 - **Stable invariants** → the **Invariants** section of `CLAUDE.md`.
 - **Resolved decisions / shipped changes** → `CHANGELOG.md` (under the current version).
-- **Open / proposed work** → the issue tracker, or the CHANGELOG's `[Unreleased]` section (the
-  promote-back candidates live there).
+- **Open / proposed work** → the issue tracker, or the CHANGELOG's `[Unreleased]` section.
 
 So a handoff summary should carry the *in-flight session state* those files miss. Prioritize, in order:
 
@@ -17,7 +16,7 @@ So a handoff summary should carry the *in-flight session state* those files miss
    CLAUDE.md (invariant) or CHANGELOG.md (change) before they fade.
 2. **Files / symbols changed**, as `path:symbol` one-liners on the *final* shape — e.g.
    `toolspace.py:make_call_tool_tool — PTC, records call_tool with reason/server/result`,
-   `assemble.py:assemble_outcome — re-sources servers/tools, flags unbacked_* / cited_unknown`,
+   `assemble.py:assemble_outcome — re-sources servers/tools, flags unbacked_servers/unbacked_tools`,
    `rl_export.py:export_dataset — reward=None; rubric_signal rides as per-run labels`. Drop diffs and
    intermediate revisions.
 3. **Current status.** What passes the suite (and the count), what's broken, last command + result. One
@@ -28,7 +27,7 @@ So a handoff summary should carry the *in-flight session state* those files miss
 5. **The seams' status.** (a) the toolspace backend — demo catalog vs a live `McpCatalog` (and whether
    `connect="lazy"` was touched); (b) the opt-in `rubric_judge` — off vs enabled, and its endpoint; (c) the
    subscription path — proxy-only vs a `claude-agent-sdk/` role; (d) the rlm-kit dep — still the
-   commit-pinned git source or overlaid editable (`../rlm-kit`); (e) any promote-back candidate that moved.
+   commit-pinned git source or overlaid editable (`../rlm-kit`).
    A resumed session must not re-open a seam that moved.
 6. **In-flight user intent + acceptance criteria** for this session. Without it a resumed session drifts.
 

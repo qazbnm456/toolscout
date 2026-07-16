@@ -30,8 +30,8 @@ where the `toolscout` CLI writes with its default `--out ./output`; override wit
 - `responses/{run_id}.json` — the **`TaskResponse`** (`toolscout.schema`): `status`
   (`ok` / `refused` / `failed`), the assembled `outcome` (the grounded `answer` + `summary`, the
   trace-re-sourced `servers_loaded` / `tools_used`, the per-criterion `criteria_facts` and opt-in
-  `judge_observations` as **labels**, and the fabrication tells `cited_unknown` / `unbacked_servers` /
-  `unbacked_tools`), `process` (effort counters), and any `refusal`/`error`. This is the **final,
+  `judge_observations` as **labels**, and the fabrication tells `unbacked_servers` / `unbacked_tools`),
+  `process` (effort counters), and any `refusal`/`error`. This is the **final,
   durable** output.
 - `traces/{run_id}.jsonl` — the append-only run trace; its events are replayed as SSE and drive the
   Trajectory drawer.

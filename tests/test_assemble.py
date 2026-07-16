@@ -37,11 +37,14 @@ def test_assemble_flags_unbacked_self_report(tmp_path):
     assert a.unbacked_tools == ["delete_everything"]  # bare "add" matches math:add, so it is backed
 
 
-def test_assemble_flags_cited_unknown_criterion(tmp_path):
+def test_assemble_tolerates_legacy_cited_criteria(tmp_path):
+    """A legacy trace whose result payload still carries the removed `cited_criteria` key loads fine —
+    `_outcome_from_payload` filters to known fields, so the stale key is ignored, not a crash."""
     events = run_recorded(tmp_path, _calls(), outcome={
         "answer": "13", "cited_criteria": ["answers_the_task", "not_a_real_criterion"]})
     a = outcome_from_events(events)
-    assert a.cited_unknown == ["not_a_real_criterion"]
+    assert a is not None and a.answer == "13"
+    assert not hasattr(a, "cited_unknown")  # the field is gone entirely
 
 
 def test_assemble_carries_criteria_facts(tmp_path):

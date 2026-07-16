@@ -73,7 +73,6 @@ WORKFLOW — discover → materialize → describe → call/compute → verify �
    - `servers_loaded`  — the servers you loaded (the system RE-SOURCES this from the trace and flags any
                          you claim but did not load — do not pad it).
    - `tools_used`      — the tools you actually called (also cross-checked; cite honestly).
-   - `cited_criteria`  — rubric criterion NAMES you believe you satisfied, if a rubric was provided.
    - `judge_call_id`   — if you ran `rubric_judge`, the id it printed.
 
 HARD RULES — do not violate:

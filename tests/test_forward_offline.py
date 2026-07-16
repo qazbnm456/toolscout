@@ -55,8 +55,7 @@ def test_full_isl_itl_ptc_flow_offline(tmp_path):
             call("describe_tools", names=["add"]),
             call("call_tool", server="math", tool="add", args={"a": 6, "b": 7}),
             submit({"outcome": {"answer": "13", "summary": "used math.add",
-                                "servers_loaded": ["math"], "tools_used": ["add"],
-                                "cited_criteria": ["answers_the_task"]}}),
+                                "servers_loaded": ["math"], "tools_used": ["add"]}}),
         ],
         planner_turns=[
             {"reasoning": "index", "code": "print(list_servers())"},
@@ -74,7 +73,7 @@ def test_full_isl_itl_ptc_flow_offline(tmp_path):
     a = outcome_from_events(events)
     assert a.servers_loaded == ["math"]        # re-sourced from the trace, not the SUBMIT
     assert a.tools_used == ["math:add"]
-    assert a.unbacked_servers == [] and a.unbacked_tools == [] and a.cited_unknown == []
+    assert a.unbacked_servers == [] and a.unbacked_tools == []
     resp = build_response(a, events, "task")
     assert resp.status == "ok" and resp.process.tool_calls == 1
 

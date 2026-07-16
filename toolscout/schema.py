@@ -1,13 +1,15 @@
 """Pydantic shapes for toolscout — a JUDGEMENT-ONLY SUBMIT + assemble-on-read.
 
 The planner's SUBMIT type (`TaskOutcome`) is deliberately CITATION-ONLY: it carries the planner's own
-`answer`/`summary` and REFERENCE lists (`servers_loaded`, `tools_used`, `cited_criteria`, an optional
-`judge_call_id`) — and structurally has NO field for raw tool outputs, per-criterion met/unmet, an
-aggregate score, or a reward. So the policy cannot self-report or fabricate evidence: the heavy facts
-are re-sourced from the trace on read (`assemble.assemble_outcome`), self-reported reference lists are
-cross-checked against the recorded `tool_call`s, and a cited id/criterion with no recorded event lands
-in `cited_unknown` — the fabrication tell. This is the rlm-kit judgement-only pattern (README "Building
-a consumer"), the same structural boundary a sibling rlm-kit consumer's verdict type enforces.
+`answer`/`summary` and REFERENCE lists (`servers_loaded`, `tools_used`, an optional `judge_call_id`) —
+and structurally has NO field for raw tool outputs, per-criterion met/unmet, an aggregate score, or a
+reward. So the policy cannot self-report or fabricate evidence: the heavy facts are re-sourced from the
+trace on read (`assemble.assemble_outcome`), self-reported reference lists are cross-checked against the
+recorded `tool_call`s, and a claimed server/tool with no recorded event lands in `unbacked_servers` /
+`unbacked_tools` — the fabrication tell. (There is no `cited_criteria`: the rubric is a trainer/eval-side
+artifact the agent never sees at inference, so citing it would be meaningless; the per-criterion signal
+is the deterministic `criteria_facts`.) This is the rlm-kit judgement-only pattern (README "Building a
+consumer").
 
 No dspy import — these are plain pydantic models, unit-testable in isolation and passed to dspy only as
 `output_model` (resolved via `custom_types=`, never call-stack name resolution).
@@ -40,7 +42,12 @@ class RubricCriteria(BaseModel):
 
 
 class TaskOutcome(BaseModel):
-    """The planner's SUBMIT — judgement + CITATIONS only (see module docstring). The `output_model`."""
+    """The planner's SUBMIT — judgement + CITATIONS only (see module docstring). The `output_model`.
+
+    Deliberately NO `cited_criteria`: the rubric is a TRAINER/EVAL-side artifact the agent never sees at
+    inference (as in ATLAS), so asking the policy to cite criterion names it cannot know is meaningless.
+    The real per-criterion signal is the deterministic `criteria_facts`, re-sourced from the trace.
+    """
 
     answer: str = Field(..., description="the final answer to the task, grounded in loaded tool outputs")
     summary: str = Field("", description="one or two sentences on how the toolspace was used")
@@ -49,9 +56,6 @@ class TaskOutcome(BaseModel):
     )
     tools_used: list[str] = Field(
         default_factory=list, description="tools actually called (cross-checked against the trace)"
-    )
-    cited_criteria: list[str] = Field(
-        default_factory=list, description="rubric criterion NAMES the planner claims it satisfied (names only)"
     )
     judge_call_id: Optional[str] = Field(
         None, description="step_id of the rubric_judge tool_call, if the opt-in self-check ran"
@@ -80,13 +84,11 @@ class AssembledOutcome(BaseModel):
     summary: str = ""
     servers_loaded: list[str] = Field(default_factory=list)
     tools_used: list[str] = Field(default_factory=list)
-    cited_criteria: list[str] = Field(default_factory=list)
     # Deterministic per-criterion facts from `rubric.criteria_facts(events)`.
     criteria_facts: list[CriterionFact] = Field(default_factory=list)
     # The opt-in judge tool's per-criterion observations (labels, LM-decided), if `judge_call_id` resolved.
     judge_observations: list[dict] = Field(default_factory=list)
-    # Fabrication tells: cited criteria/ids or self-reported servers/tools NOT backed by a recorded event.
-    cited_unknown: list[str] = Field(default_factory=list)
+    # Fabrication tells: self-reported servers/tools NOT backed by a recorded event.
     unbacked_servers: list[str] = Field(default_factory=list)
     unbacked_tools: list[str] = Field(default_factory=list)
     # Objective effort/coverage counters (labels, not reward).

@@ -16,8 +16,7 @@ two failure modes that ship a bad run: an INCOMPLETE answer and an UNGROUNDED or
    the variable that backs it (see `ground-the-answer`). If you can't, either fetch the value or drop the
    claim.
 3. **Honest citations.** `servers_loaded` = only servers you loaded. `tools_used` = only tools you
-   called successfully. `cited_criteria` = only real criteria. No padding — the trace flags
-   `unbacked_servers`/`unbacked_tools`/`cited_unknown`.
+   called successfully. No padding — the trace flags `unbacked_servers`/`unbacked_tools`.
 4. **Budget.** If you're near the iteration cap, prefer submitting a grounded partial answer over one
    more exploratory call. Shipping something honest beats never submitting.
 

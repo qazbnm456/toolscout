@@ -32,9 +32,9 @@
   // Derive the card's alloy STATE from a TaskResponse — keyed to the trace-re-sourced facts, not the
   // planner's self-report → { key, head, tells }:
   //   "iron"      — status failed/refused, or no usable answer (a REFUSAL card; the effort still shows)
-  //   "flag"      — an answer, but the self-report OVER-CLAIMS: it cites criteria / servers / tools the
-  //                 trace does not back (cited_unknown ∪ unbacked_servers ∪ unbacked_tools). Amber; the
-  //                 console spells out that the trace does not back the claim. This is the money shot.
+  //   "flag"      — an answer, but the self-report OVER-CLAIMS: it names servers / tools the trace does
+  //                 not back (unbacked_servers ∪ unbacked_tools). Amber; the console spells out that the
+  //                 trace does not back the claim. This is the money shot.
   //   "grounded"  — an answer whose self-report matches the trace (no fabrication tell). Green.
   function deriveState(r) {
     const status = (r && r.status) || "";
@@ -42,8 +42,7 @@
     const answer = outcome && String(outcome.answer || "").trim();
     if (status === "failed" || status === "refused" || !answer)
       return { key: "iron", head: status === "refused" ? "REFUSED" : "FAILED", tells: 0 };
-    const tells = (outcome.cited_unknown || []).length +
-                  (outcome.unbacked_servers || []).length +
+    const tells = (outcome.unbacked_servers || []).length +
                   (outcome.unbacked_tools || []).length;
     if (tells > 0) return { key: "flag", head: "FLAGGED", tells: tells };
     return { key: "grounded", head: "GROUNDED", tells: 0 };

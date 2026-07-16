@@ -19,18 +19,18 @@ Utility mode (no marketing hero): orient (header) , input (task) , status (live 
 
 toolscout's load-bearing invariant is that the planner SUBMITs a judgement + CITATIONS only; the heavy
 facts (which servers loaded, which tools were called) are **re-sourced from the trace on read**, and a
-cited criterion / claimed server / claimed tool with **no recorded event** is a **fabrication tell**. The
+claimed server / claimed tool with **no recorded event** is a **fabrication tell**. The
 console must make this legible, so the frame alloy is keyed to the **trace-derived grounding, NOT the
 planner's self-report** (a policy can claim it used tools it never touched; the trace cannot):
 
 | derived state | frame alloy | when |
 |---|---|---|
 | **grounded** | green | `status == ok`, a non-empty `answer`, and NO fabrication tell |
-| **flagged** | amber | an answer, but the self-report OVER-CLAIMS — `cited_unknown` ∪ `unbacked_servers` ∪ `unbacked_tools` is non-empty |
+| **flagged** | amber | an answer, but the self-report OVER-CLAIMS — `unbacked_servers` ∪ `unbacked_tools` is non-empty |
 | **refusal / failed** | iron | `status` failed/refused, or no usable answer |
 
 When the self-report over-claims — the planner says it loaded `payments` but the trace has no
-`load_server(payments)`, or it cites a criterion the rubric never had — the card carries a prominent
+`load_server(payments)` — the card carries a prominent
 **fabrication marker** (`⚠ the self-report is not fully backed by the trace … the facts below are
 re-sourced from the trace`). That is toolscout's money shot: the answer is framed by what the run
 ACTUALLY did, not what the policy claims it did. The tells also show as **red chips** in the Fabrication
@@ -118,14 +118,14 @@ order:
 3. **Task view** (always, once a run is on screen): the task string under solve (sans, in a well).
 
 **Right modules** (`.module`: thin top accent, uppercase label head, `--surface-1` body), in order:
-1. `RUN TELEMETRY` (top-right — the run's signature, the family convention across the sibling consoles)
+1. `RUN TELEMETRY` (top-right — the run's signature)
    (`process`): a `turns` headline, then a grid — turns · servers · tool calls · escalations (violet if
    >0). `rubric judge ran` as a chip when the opt-in judge fired.
 2. `RUBRIC CRITERIA FACTS`: per criterion `[CAT] name (w=…)` + the deterministic `observed` facts (counts
    /ids pulled straight from the trace — a FACT surface, **not** a score). Then any **judge observations**
    (`[met]`/`[UNMET]` labels) below — labels only; the trainer scores.
-3. `FABRICATION TELLS`: `cited_unknown` / `unbacked_servers` / `unbacked_tools` as red chips, grouped by
-   kind. When empty → a green `✓ no fabrication tells — the self-report matches the trace` note.
+3. `FABRICATION TELLS`: `unbacked_servers` / `unbacked_tools` as red chips, grouped by kind. When empty →
+   a green `✓ no fabrication tells — the self-report matches the trace` note.
 4. `SUMMARY`: the one-line recap, a closing module.
 
 ### 5.5 States (every state explicit)

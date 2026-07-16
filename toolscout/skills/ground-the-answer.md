@@ -6,7 +6,7 @@ description: Every claim in the answer must rest on a value a tool actually retu
 # Ground the answer
 
 The planner submits a `TaskOutcome` that is JUDGEMENT + CITATIONS only — `answer`, `summary`,
-`servers_loaded`, `tools_used`, `cited_criteria`, `judge_call_id`. It has NO field for raw tool output.
+`servers_loaded`, `tools_used`, `judge_call_id`. It has NO field for raw tool output.
 So the answer is trustworthy only if every claim in it traces back to a value a tool actually returned
 and you still hold in a variable.
 
@@ -25,7 +25,6 @@ self-report. Padding is not just useless, it's flagged:
   **`unbacked_servers`**.
 - `tools_used` must list only tools you actually `call_tool`'d successfully. A tool you named but never
   called → **`unbacked_tools`**.
-- `cited_criteria` must reference real rubric criteria. An unknown one → **`cited_unknown`**.
 
 These are the fabrication tells. The policy CANNOT self-report evidence — the trace is the source of
 truth, and claiming what it doesn't back only marks the run as fabricating.

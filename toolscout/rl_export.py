@@ -52,12 +52,11 @@ def run_labels(events: list[dict]) -> dict:
     assembled = outcome_from_events(events)
     if assembled is None:
         return {"finalized": False, "servers_loaded": 0, "tools_used": 0,
-                "cited_unknown": 0, "unbacked_servers": 0, "unbacked_tools": 0, "judge_ran": False}
+                "unbacked_servers": 0, "unbacked_tools": 0, "judge_ran": False}
     return {
         "finalized": True,
         "servers_loaded": len(assembled.servers_loaded),
         "tools_used": len(assembled.tools_used),
-        "cited_unknown": len(assembled.cited_unknown),
         "unbacked_servers": len(assembled.unbacked_servers),
         "unbacked_tools": len(assembled.unbacked_tools),
         "judge_ran": bool(assembled.judge_observations),

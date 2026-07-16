@@ -7,12 +7,12 @@ heavy facts from the recorded `tool_call`s so the policy cannot self-report them
   events), NOT trusted from the SUBMIT.
 - the planner's OWN self-reported `servers_loaded` / `tools_used` are cross-checked against that truth;
   anything it claims but the trace does not back lands in `unbacked_servers` / `unbacked_tools`.
-- `cited_criteria` are checked against the run's recorded rubric; an unknown name lands in `cited_unknown`.
-- `criteria_facts` are the deterministic per-criterion facts (`rubric.criteria_facts`), and
+- `criteria_facts` are the deterministic per-criterion facts (`rubric.criteria_facts`) — the rubric is a
+  trainer/eval-side artifact the agent never cites, so there is nothing to cross-check there — and
   `judge_observations` are the opt-in judge tool's per-criterion LABELS (resolved via `judge_call_id`).
 
 Nothing here scores or rewards — it re-sources facts and flags fabrication. This is the assemble-on-read
-pattern a sibling rlm-kit consumer established (a deterministic reduction over trace facts, never a model
+pattern (a deterministic reduction over trace facts, never a model
 judgement in the read path). Runs everywhere the result is consumed — live (cli), re-render, and export —
 so labels read facts too. Pure stdlib + pydantic; no dspy.
 """
@@ -66,11 +66,9 @@ def assemble_outcome(outcome: TaskOutcome, events: list[dict], *,
     backed_tool_forms = set(tools_used) | {t.split(":")[-1] for t in tools_used}
     unbacked_tools = sorted({t for t in (outcome.tools_used or []) if t not in backed_tool_forms})
 
-    rubric = rubric_mod.rubric_from_meta(events) if criteria is None else None
-    crit_list = criteria if criteria is not None else rubric.criteria
-    known_names = {c.name for c in crit_list}
-    cited_unknown = sorted({c for c in (outcome.cited_criteria or []) if c not in known_names})
-
+    # Resolve the run's rubric to attach deterministic per-criterion facts (the real per-criterion signal;
+    # the agent never cites the rubric — there is no cited_criteria to cross-check).
+    crit_list = criteria if criteria is not None else rubric_mod.rubric_from_meta(events).criteria
     criteria_facts = rubric_mod.criteria_facts(events, crit_list)
     judge_observations = _judge_observations(events, outcome.judge_call_id)
 
@@ -94,10 +92,8 @@ def assemble_outcome(outcome: TaskOutcome, events: list[dict], *,
         summary=outcome.summary,
         servers_loaded=servers_loaded,
         tools_used=tools_used,
-        cited_criteria=list(outcome.cited_criteria or []),
         criteria_facts=criteria_facts,
         judge_observations=judge_observations,
-        cited_unknown=cited_unknown,
         unbacked_servers=unbacked_servers,
         unbacked_tools=unbacked_tools,
         metrics=metrics,

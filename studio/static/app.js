@@ -2,7 +2,7 @@
    window.RunCore, window.Trajectory (loaded before this). See DESIGN.md for the visual contract. The
    load-bearing rule (§2): the card frame is keyed to the TRACE-DERIVED grounding (RunCore.deriveState —
    facts re-sourced from the trace, a claim the trace does not back is a fabrication tell), NOT the
-   planner's self-report — the analogue of the sibling keying its frame to the evidence, not the verdict. */
+   planner's self-report — key the card frame to the evidence, never the claim. */
 (function () {
   "use strict";
   const $ = (s) => document.querySelector(s);
@@ -118,7 +118,6 @@
     const marker = st.tells > 0
       ? `<span class="contradiction">⚠ the self-report is not fully backed by the trace — ` +
         (unbacked.length ? `claims ${unbacked.map(esc).join(", ")} with no recorded event; ` : "") +
-        ((o.cited_unknown || []).length ? `cites unknown criteria ${(o.cited_unknown || []).map(esc).join(", ")}; ` : "") +
         `the facts below are re-sourced from the trace</span>` : "";
     const badges = [
       `<span class="badge count">${p.servers_loaded != null ? p.servers_loaded : (o.servers_loaded || []).length} servers</span>`,
@@ -198,7 +197,6 @@
     }).join("");
 
     const tells = [];
-    if ((o.cited_unknown || []).length) tells.push(["cited criteria with no rubric entry", o.cited_unknown]);
     if ((o.unbacked_servers || []).length) tells.push(["servers claimed, not in the trace", o.unbacked_servers]);
     if ((o.unbacked_tools || []).length) tells.push(["tools claimed, not in the trace", o.unbacked_tools]);
     const tellsHtml = tells.length

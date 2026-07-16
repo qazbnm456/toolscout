@@ -26,10 +26,10 @@ def test_render_outcome_shows_answer_and_toolspace_use(tmp_path):
 
 def test_render_outcome_surfaces_fabrication_tells(tmp_path):
     events = _events(tmp_path, {"answer": "13", "servers_loaded": ["ghost"],
-                                "cited_criteria": ["nope"]})
+                                "tools_used": ["phantom_tool"]})
     text = render_outcome(outcome_from_events(events))
     assert "FABRICATION TELLS" in text
-    assert "ghost" in text and "nope" in text
+    assert "ghost" in text and "phantom_tool" in text
 
 
 def test_render_response_header(tmp_path):

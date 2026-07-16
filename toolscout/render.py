@@ -1,7 +1,7 @@
 """Render an assembled outcome (or a full response) as human-readable text for the CLI.
 
 Presentation only — pure stdlib + pydantic, no dspy, no new judgement. Fabrication tells
-(`cited_unknown`, `unbacked_*`) are surfaced prominently: they are the honest read of the trajectory.
+(`unbacked_servers`, `unbacked_tools`) are surfaced prominently: the honest read of the trajectory.
 """
 
 from __future__ import annotations
@@ -49,8 +49,6 @@ def render_outcome(outcome: AssembledOutcome) -> str:
             lines.append(f"  [{mark}] {o.get('criterion', '?')}: {o.get('note', '')}")
 
     tells: list[str] = []
-    if outcome.cited_unknown:
-        tells.append(f"cited criteria with no recorded rubric entry: {outcome.cited_unknown}")
     if outcome.unbacked_servers:
         tells.append(f"claimed servers not in the trace: {outcome.unbacked_servers}")
     if outcome.unbacked_tools:
