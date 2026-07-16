@@ -10,8 +10,9 @@ from toolscout.rubric import (
     rubric_from_meta,
     rubric_to_meta,
     trace_facts,
+    validate_rubric,
 )
-from toolscout.schema import CRITERION_CATEGORIES
+from toolscout.schema import CRITERION_CATEGORIES, Criterion, RubricCriteria
 
 from tests.conftest import run_recorded
 
@@ -41,6 +42,31 @@ def test_parse_rubric_tolerates_fences_and_bad_categories():
 
 def test_parse_rubric_garbage_is_empty():
     assert parse_rubric("not json at all").criteria == []
+
+
+def test_validate_rubric_clean_default():
+    assert validate_rubric(default_rubric("do a thing")) == []
+    assert validate_rubric(RubricCriteria(criteria=[])) == ["rubric has no criteria"]
+
+
+def test_validate_rubric_flags_structural_issues():
+    r = RubricCriteria(criteria=[
+        Criterion(name="a", category="TF", description="answers the task using tool outputs"),
+        Criterion(name="a", category="TA", description="loaded the right server"),  # dup name
+        Criterion(name="c", category="TG", description=""),                          # empty desc
+        Criterion(name="d", category="PA", description="the vibes are immaculate"),  # not observable
+    ])
+    issues = " ".join(validate_rubric(r))
+    assert "duplicate criterion names" in issues
+    assert "empty descriptions" in issues
+    assert "not be trace-observable" in issues
+    assert "categories not represented" not in issues  # all four present here
+
+
+def test_validate_rubric_flags_missing_category():
+    r = RubricCriteria(criteria=[
+        Criterion(name="a", category="TF", description="answers using tool calls")])
+    assert any("categories not represented" in i for i in validate_rubric(r))
 
 
 def test_rubric_meta_roundtrip(tmp_path):

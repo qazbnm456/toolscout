@@ -43,8 +43,20 @@ def test_export_offline(tmp_path, capsys):
 
 def test_rubric_offline_default(tmp_path, capsys, monkeypatch):
     monkeypatch.delenv("TS_RUBRIC_LM", raising=False)
-    rc = main(["rubric", "summarize the open issues"])
+    rc = main(["rubric", "summarize the open issues", "--out", str(tmp_path / "r.json")])
     assert rc == 0
-    rubric = json.loads(capsys.readouterr().out)
+    rubric = json.loads((tmp_path / "r.json").read_text())
     cats = {c["category"] for c in rubric["criteria"]}
     assert cats == {"TF", "TA", "TG", "PA"}
+
+
+def test_rubric_batch_offline(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("TS_RUBRIC_LM", raising=False)
+    taskset = tmp_path / "tasks.json"
+    taskset.write_text(json.dumps(["find the CVE severity", {"id": "search", "task": "search vulns"}]))
+    out_dir = tmp_path / "rubrics"
+    rc = main(["rubric-batch", str(taskset), str(out_dir)])
+    assert rc == 0
+    assert (out_dir / "task-0.json").exists() and (out_dir / "search.json").exists()
+    r = json.loads((out_dir / "search.json").read_text())
+    assert {c["category"] for c in r["criteria"]} == {"TF", "TA", "TG", "PA"}

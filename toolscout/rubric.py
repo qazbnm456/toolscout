@@ -160,6 +160,41 @@ _CATEGORY_LENS = {
 }
 
 
+# Vocabulary a criterion description should touch to be plausibly OBSERVABLE from a trace (ATLAS: criteria
+# must be observable, not surface-quality). A deterministic heuristic — NOT a semantic judge.
+_OBSERVABLE_VOCAB = ("server", "tool", "load", "call", "arg", "answer", "describe", "criteri", "ground",
+                     "param", "output", "result", "response", "cite")
+
+
+def validate_rubric(rubric: RubricCriteria) -> list[str]:
+    """A DETERMINISTIC structural lint of a rubric — NOT a semantic-quality judge. Returns human-readable
+    issues (empty list = clean). Checks the ATLAS-adjacent structural properties we CAN check offline:
+    all four categories represented, unique criterion names (overlap-lite), non-empty descriptions, and a
+    weak observability heuristic. Deeper "is this rubric GOOD" validation needs the eval harness + a real
+    training signal — out of scope here."""
+    criteria = rubric.criteria
+    if not criteria:
+        return ["rubric has no criteria"]
+    issues: list[str] = []
+    present = {c.category for c in criteria}
+    missing = [cat for cat in CRITERION_CATEGORIES if cat not in present]
+    if missing:
+        issues.append(f"categories not represented: {missing}")
+    names = [c.name for c in criteria]
+    dupes = sorted({n for n in names if names.count(n) > 1})
+    if dupes:
+        issues.append(f"duplicate criterion names: {dupes}")
+    empty = [c.name for c in criteria if not (c.description or "").strip()]
+    if empty:
+        issues.append(f"criteria with empty descriptions: {empty}")
+    vague = [c.name for c in criteria
+             if not any(w in (c.description or "").lower() for w in _OBSERVABLE_VOCAB)]
+    if vague:
+        issues.append("criteria whose description may not be trace-observable (mentions no "
+                      f"server/tool/call/arg/answer/...): {vague}")
+    return issues
+
+
 def criteria_facts(events: list[dict], criteria: Optional[list[Criterion]] = None) -> list[CriterionFact]:
     """Per-criterion DETERMINISTIC facts from the trace. `criteria` defaults to the run's recorded rubric.
 

@@ -17,6 +17,7 @@ import asyncio
 import glob
 import json
 import os
+import re
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -203,29 +204,43 @@ def _cmd_export(args) -> int:
     return 0
 
 
-def _cmd_rubric(args) -> int:
-    """Host-side rubric decomposition (dataset-prep). Deterministic default unless TS_RUBRIC_LM is set."""
+def _rubric_chat_fn():
+    """A chat closure for host-side rubric generation when TS_RUBRIC_LM is set, else None (→ skeleton)."""
+    model = os.getenv("TS_RUBRIC_LM", "")
+    if not model:
+        return None
+
+    def _chat(prompt: str) -> str:
+        from openai import OpenAI
+
+        client = OpenAI(base_url=os.getenv("TS_RUBRIC_BASE_URL") or os.getenv("TS_BASE_URL"),
+                        api_key=os.getenv("TS_RUBRIC_API_KEY") or os.getenv("TS_API_KEY") or "EMPTY",
+                        max_retries=0, timeout=60.0)
+        resp = client.chat.completions.create(
+            model=model, temperature=0.0, max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}])
+        return resp.choices[0].message.content or ""
+
+    return _chat
+
+
+def _rubric_for(task: str, chat_fn):
+    """Generate a rubric for one task: the frontier model when configured (fall back to the deterministic
+    skeleton on an empty/malformed reply), else the offline skeleton — so the command never yields nothing."""
     from .rubric import default_rubric, generate_rubric
 
-    task = args.task
-    model = os.getenv("TS_RUBRIC_LM", "")
-    if model:
-        def _chat(prompt: str) -> str:
-            from openai import OpenAI
+    if chat_fn is not None:
+        rubric = generate_rubric(task, chat_fn)
+        if rubric.criteria:
+            return rubric
+    return default_rubric(task)
 
-            client = OpenAI(base_url=os.getenv("TS_RUBRIC_BASE_URL") or os.getenv("TS_BASE_URL"),
-                            api_key=os.getenv("TS_RUBRIC_API_KEY") or os.getenv("TS_API_KEY") or "EMPTY",
-                            max_retries=0, timeout=60.0)
-            resp = client.chat.completions.create(
-                model=model, temperature=0.0, max_tokens=2048,
-                messages=[{"role": "user", "content": prompt}])
-            return resp.choices[0].message.content or ""
 
-        rubric = generate_rubric(task, _chat)
-        if not rubric.criteria:  # a malformed model reply → fall back so the command never yields nothing
-            rubric = default_rubric(task)
-    else:
-        rubric = default_rubric(task)
+def _cmd_rubric(args) -> int:
+    """Host-side rubric decomposition (dataset-prep). Deterministic default unless TS_RUBRIC_LM is set."""
+    from .rubric import validate_rubric
+
+    rubric = _rubric_for(args.task, _rubric_chat_fn())
     out = json.dumps(rubric.model_dump(), ensure_ascii=False, indent=2)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
@@ -233,6 +248,49 @@ def _cmd_rubric(args) -> int:
         print(f"wrote {args.out} ({len(rubric.criteria)} criteria)")
     else:
         print(out)
+    for issue in validate_rubric(rubric):  # a structural lint, non-fatal
+        print(f"  ! rubric lint: {issue}")
+    return 0
+
+
+def _cmd_rubric_batch(args) -> int:
+    """Generate a rubric per task in a taskset, offline once, for the rollout workflow: batch-generate here,
+    then `solve --rubric <that task's rubric>`. Taskset JSON: a list of strings OR {"id","task"} objects."""
+    from .rubric import validate_rubric
+
+    with open(args.taskset, encoding="utf-8") as fh:
+        raw = json.load(fh)
+    tasks = []
+    seen: set[str] = set()
+    for i, item in enumerate(raw):
+        if isinstance(item, str):
+            tid, task = f"task-{i}", item
+        elif isinstance(item, dict) and item.get("task"):
+            tid, task = str(item.get("id") or f"task-{i}"), str(item["task"])
+        else:
+            raise ValueError(f"taskset item {i} must be a string or an object with a 'task' field")
+        # The id becomes a filename under out_dir — sanitize so an id like '../x' or 'a/b' can't escape it,
+        # and reject a post-sanitize collision instead of silently overwriting another entry's rubric (symmetry
+        # with eval's load_taskset, which rejects duplicate ids for the same reason).
+        safe = re.sub(r"[^A-Za-z0-9._-]", "_", tid).lstrip(".") or f"task-{i}"
+        if safe in seen:
+            raise ValueError(f"duplicate rubric id {safe!r} (from {tid!r}) — ids must be unique after sanitizing")
+        seen.add(safe)
+        tasks.append((safe, task))
+    chat_fn = _rubric_chat_fn()
+    os.makedirs(args.out_dir, exist_ok=True)
+    total_issues = 0
+    for tid, task in tasks:
+        rubric = _rubric_for(task, chat_fn)
+        issues = validate_rubric(rubric)
+        total_issues += len(issues)
+        path = os.path.join(args.out_dir, f"{tid}.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(rubric.model_dump(), fh, ensure_ascii=False, indent=2)
+        flag = f"  ⚠ {len(issues)} lint issue(s)" if issues else ""
+        print(f"  {tid}: {len(rubric.criteria)} criteria → {path}{flag}")
+    print(f"wrote {len(tasks)} rubric(s) to {args.out_dir}"
+          + (f" ({total_issues} lint issue(s) total)" if total_issues else ""))
     return 0
 
 
@@ -266,6 +324,12 @@ def build_parser() -> argparse.ArgumentParser:
     rb.add_argument("task", help="the task to decompose")
     rb.add_argument("--out", default=None)
     rb.set_defaults(func=_cmd_rubric)
+
+    rbb = sub.add_parser("rubric-batch",
+                         help="decompose every task in a taskset into a per-task rubric (dataset-prep)")
+    rbb.add_argument("taskset", help="JSON list of task strings or {id, task} objects")
+    rbb.add_argument("out_dir", help="directory to write <id>.json rubrics into")
+    rbb.set_defaults(func=_cmd_rubric_batch)
     return p
 
 
