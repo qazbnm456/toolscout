@@ -273,7 +273,7 @@
     } catch (e) { feedError(e); renderResult({ status: "failed", refusal: { reason: "not_found" }, error: String(e.message) }); return; }
     // replay the trace into the feed (paced), then render the stored response
     try {
-      await streamSSE("GET", `/v1/runs/${encodeURIComponent(id)}/events`, null, (event, data) => addFeedRow(event, data));
+      await streamSSE("GET", `/v1/runs/${encodeURIComponent(id)}/events?delay=0.15`, null, (event, data) => addFeedRow(event, data));
     } catch (_) {}
     renderResult(resp);
   }

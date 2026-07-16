@@ -21,7 +21,7 @@ import re
 import threading
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -197,7 +197,7 @@ def get_iterations(run_id: str) -> JSONResponse:
 
 
 @app.get("/v1/runs/{run_id}/events")
-async def stream_run(run_id: str, delay: float = 0.0) -> StreamingResponse:
+async def stream_run(run_id: str, delay: float = Query(0.0, ge=0, le=10)) -> StreamingResponse:
     """Replay the run's trace as SSE — the process build-up. `delay` (seconds) paces it to feel live.
     Wait for `task.run.completed`, then GET `/v1/runs/{run_id}` for the full result."""
     p = _trace_path(run_id)
@@ -206,7 +206,9 @@ async def stream_run(run_id: str, delay: float = 0.0) -> StreamingResponse:
     # Sort by step_id (matches toolscout's read order). Ordering caveat: tool_calls are written live but
     # `main_step`s flush post-hoc with trailing step_ids, so a REPLAY streams the action timeline first,
     # then the reasoning turns — the stored trace does not preserve true think→act interleaving.
-    events = sorted(_load_events(p), key=_step_key)
+    # Read + parse the JSONL off the event loop — a multi-MB trace would otherwise block every
+    # concurrent request for the whole parse.
+    events = sorted(await asyncio.to_thread(_load_events, p), key=_step_key)
 
     async def gen():
         saw_completed = False
