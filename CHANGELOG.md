@@ -60,6 +60,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
   The fabrication tells are now `unbacked_servers` / `unbacked_tools` only, and `run_labels` no longer
   carries `cited_unknown` (a dataset-shape note for a downstream training consumer).
 
+### Documentation
+
+- **Split the README into a lean overview + a `toolscout/README.md` guide** (mirroring rlm-kit's
+  `README.md` / `rlm_kit/README.md` split). The top-level `README.md` is now the overview (what it is,
+  install, run, capability bullets, deep-links); the guide holds the deep reference. The guide adds a
+  **"What ATLAS is — and what it isn't"** section correcting the scope: ATLAS is not MCP-specific (MCP is
+  its testbed; the method generalizes to any large toolspace) and not only fine-tuning (three separable
+  pieces — the inference architecture, the rubric/SLM-judge methodology, and the RFT that learns them),
+  plus a **"What toolscout implements — and what it leaves to you"** boundary and a **"Reproducing the
+  ATLAS experiments"** walkthrough. Also corrects a stale connect-safety line to the per-transport framing.
+
 ## [0.1.0] - 2026-07-16
 
 The initial release: a task string in → a structured, grounded outcome over a large MCP toolspace out,

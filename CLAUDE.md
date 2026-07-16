@@ -10,9 +10,10 @@ toolscout implements the **ATLAS** approach (Microsoft Research,
 https://arxiv.org/html/2603.06713v1): a small planner cannot hold hundreds of tool schemas in context, so
 it **discovers** the toolspace progressively — Iterative Server Loading (ISL) → Iterative Tool Loading
 (ITL) — and **computes over tool results as code** in the sandboxed persistent REPL (Programmatic Tool
-Calling, PTC, inherited free from `dspy.RLM`). `README.md` is the user-facing overview (the ATLAS mapping,
-the "trajectories, never reward" resolution, layout, roles); this file is the invariants for anyone
-editing the code.
+Calling, PTC, inherited free from `dspy.RLM`). `README.md` is the lean user-facing overview; the full
+guide — what ATLAS is (and isn't), the ATLAS→rlm-kit mapping, the "trajectories, never reward" resolution,
+reproducing the experiments, the toolspace/roles surfaces, and layout — lives in `toolscout/README.md`
+("the guide"). This file is the invariants for anyone editing the code.
 
 One companion rule ships under `.claude/rules/`:
 
