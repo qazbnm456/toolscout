@@ -27,8 +27,8 @@ One companion rule ships under `.claude/rules/`:
     green `pytest` is not enough on its own; keep it green as its own gate.
   - `uv run --group dev python -m pytest -q` — the package suite. Fully OFFLINE: no live model, no Deno, no
     network. dspy-bearing paths use `DummyLM` + rlm-kit's `ScriptedInterpreter` (the offline forward path)
-    or skip; the toolspace defaults to the built-in demo catalog, and the `McpCatalog` backing is unit-
-    tested offline with a fake `_ServerBridge` (`tests/test_mcp_toolspace.py`) — no live MCP server.
+    or skip; the toolspace defaults to the built-in demo catalog, and the `McpCatalog` ADAPTER is unit-
+    tested offline with a fake kit catalog (`tests/test_mcp_toolspace.py`) — no live MCP server.
   - The **studio** (`studio/`, a uv workspace member) has its OWN suite — `uv run --group dev python -m
     pytest studio/tests` (or from `studio/`). It reads this package's trace/`TaskResponse` contract, so run
     it too when you touch `schema.py`, `response.py`, `render.py`, or the trace payloads it renders.
@@ -119,9 +119,12 @@ One companion rule ships under `.claude/rules/`:
 
 - **MCP is CLIENT-ONLY; external servers connect EAGERLY, host-side, pre-run.** toolscout never IS an MCP
   server and never bundles one — `TS_TOOLSPACE` points it at someone else's servers (a JSON list of specs).
-  The `McpCatalog` (`mcp_toolspace.py`) connects each server host-side BEFORE the run (`connect="eager"`,
-  the default and proven path) — a live subprocess spawn INSIDE the RLM/asyncio loop can hang dspy
-  (`connect="lazy"` is opt-in/experimental for that reason). Server-authored names, descriptions, and
+  The `McpCatalog` (`mcp_toolspace.py`) is a thin ADAPTER over rlm-kit's public `rlm_kit.mcp.McpCatalog`
+  (the multi-server transport — the kit owns the async→sync bridge, connect lifecycle, and hang-safety);
+  toolscout only maps its raw MCP tools onto the scaffolded `ToolSpec` shape. The kit connects each server
+  host-side BEFORE the run (`connect="eager"`, the default and proven path) — a live subprocess spawn
+  INSIDE the RLM/asyncio loop can hang dspy (`connect="lazy"` is opt-in/experimental for that reason).
+  Server-authored names, descriptions, and
   schemas — AND tool outputs — are **UNTRUSTED** LM context (a prompt-injection surface, like a fetched
   page); all rendered text is length-capped (`max_desc_chars`, `scaffolding._cap`). Each MCP call records
   exactly ONE `tool_call`, emitted by the `call_tool` meta-tool via `rlm_kit.trace.record_tool_call`; the

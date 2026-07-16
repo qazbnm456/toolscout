@@ -123,7 +123,7 @@ toolscout/
   catalog.py       # the toolspace abstraction: Catalog/StaticCatalog, demo_catalog, load_catalog
   scaffolding.py   # normalize schemas → uniform signatures; arg coercion; informative errors
   toolspace.py     # the four ISL/ITL/PTC meta-tools (list_servers/load_server/describe_tools/call_tool)
-  mcp_toolspace.py # McpCatalog — external MCP servers via a sync bridge (lazy; live path)
+  mcp_toolspace.py # McpCatalog — adapter over rlm-kit's rlm_kit.mcp.McpCatalog (external MCP; live path)
   rubric.py        # rubric generation + validate_rubric lint + deterministic criteria_facts (read-time)
   assemble.py      # re-source outcome from the trace; flag fabrication
   render.py        # human-readable outcome/response text
