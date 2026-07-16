@@ -107,11 +107,12 @@ subscription (rlm-kit's `ClaudeAgentLM`, the `[subscription]` extra) instead of 
 ## Judgement-only SUBMIT + assemble-on-read
 
 The planner submits a `TaskOutcome` that is **judgement + citations only** — its `answer`/`summary` plus
-reference lists (`servers_loaded`, `tools_used`, `cited_criteria`). It structurally has **no field** for
-raw tool outputs or a score. On read, `assemble_outcome` re-sources the heavy facts from the trace and
-cross-checks the self-report: anything the planner claims but the trace does not back lands in
-`unbacked_servers` / `unbacked_tools` / `cited_unknown` — the fabrication tells. The policy cannot
-self-report evidence.
+reference lists (`servers_loaded`, `tools_used`). It structurally has **no field** for raw tool outputs or
+a score. On read, `assemble_outcome` re-sources the heavy facts from the trace and cross-checks the
+self-report: anything the planner claims but the trace does not back lands in `unbacked_servers` /
+`unbacked_tools` — the fabrication tells. The policy cannot self-report evidence. (There is no
+`cited_criteria`: the rubric is a trainer/eval-side artifact the agent never sees at inference, so the
+per-criterion signal is the deterministic `criteria_facts`, not a policy self-citation.)
 
 ## Layout
 
@@ -123,24 +124,38 @@ toolscout/
   scaffolding.py   # normalize schemas → uniform signatures; arg coercion; informative errors
   toolspace.py     # the four ISL/ITL/PTC meta-tools (list_servers/load_server/describe_tools/call_tool)
   mcp_toolspace.py # McpCatalog — external MCP servers via a sync bridge (lazy; live path)
-  rubric.py        # rubric generation (host-side) + deterministic criteria_facts (read-time)
+  rubric.py        # rubric generation + validate_rubric lint + deterministic criteria_facts (read-time)
   assemble.py      # re-source outcome from the trace; flag fabrication
   render.py        # human-readable outcome/response text
   response.py      # the TaskResponse envelope
   rl_export.py     # reward-free SFT/RL dataset export (rubric signal as labels)
   judge_tool.py    # the opt-in rubric_judge tool (make_model_tool)
   agent.py         # SolveTask(RLMTask) + INSTRUCTIONS + setup + subscription wiring
-  cli.py           # solve / render / export / rubric
+  cli.py           # solve / render / export / rubric / rubric-batch
   skills/          # progressive-disclosure tactics KB (read_skill)
 studio/            # the visualization console (uv workspace member, not in the wheel)
+eval/              # toolscout-eval — offline, reward-free 4-category (TF/TA/TG/PA) 0–10 judge scorer
+```
+
+## Evaluation (`toolscout-eval`)
+
+The `eval/` workspace member reproduces ATLAS's evaluation: a 4-category (Task Fulfillment / Tool
+Appropriateness / Tool Grounding / Parameter Accuracy) 0–10 LLM-as-judge that scores completed
+trajectories and reports a per-category scorecard (TF primary). It is a **measurement** tool — it flows
+`trace → judge → report` and never feeds a reward back into a trajectory or dataset (compatible with
+"trajectories, never reward", which the paper itself mandates by keeping the eval judge separate from the
+training reward). It lives out of the toolscout wheel and reads the trace/`AssembledOutcome` contract
+one-way. Training (rubric reward → GRPO) lives in a separate downstream project, not here.
+
+```bash
+uv run --package toolscout-eval python -m toolscout_eval score "output/traces/*.jsonl" taskset.json
 ```
 
 ## Relationship to rlm-kit
 
 toolscout **vendors nothing** — it consumes rlm-kit's public surface (`RLMTask`, the trace schema, the
 exporters, `make_model_tool`, `ClaudeAgentLM`) and extends it the sanctioned way: subclass `RLMTask`,
-add tools via the base/wrap split, read results through the trace. See `VENDOR.md`. Concepts this project
-surfaced as candidates to promote back into the kit are tracked in `CHANGELOG.md`.
+add tools via the base/wrap split, read results through the trace. See `VENDOR.md`.
 
 ## License
 

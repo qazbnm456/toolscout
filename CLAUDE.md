@@ -32,9 +32,16 @@ One companion rule ships under `.claude/rules/`:
   - The **studio** (`studio/`, a uv workspace member) has its OWN suite — `uv run --group dev python -m
     pytest studio/tests` (or from `studio/`). It reads this package's trace/`TaskResponse` contract, so run
     it too when you touch `schema.py`, `response.py`, `render.py`, or the trace payloads it renders.
+  - The **eval harness** (`eval/`, a uv workspace member — `toolscout-eval`) also has its OWN suite —
+    `uv run --package toolscout-eval --extra dev python -m pytest eval/tests` (a plain root `uv run` does
+    NOT install the member, and `toolscout-eval` is deliberately not a dependency of `toolscout`, so the
+    `--package` is load-bearing; CI gets it via `uv sync --all-packages`). It is a one-way reader of the
+    trace/`AssembledOutcome`
+    contract (a reward-free MEASUREMENT scorer — see the eval invariant below); run it when you touch
+    `schema.py`, `assemble.py`, `rubric.py`, or the trace payloads it scores.
 - A *live* `solve` run needs model creds (`TS_*` env, see `.env.example`) AND a Deno sandbox
-  (`brew install deno`). `render` / `export` / `rubric` are fully offline. Don't run a live model in CI; it
-  costs money. Before claiming done, actually run BOTH gates and paste the output.
+  (`brew install deno`). `render` / `export` / `rubric` / `rubric-batch` are fully offline. Don't run a
+  live model (or a live eval judge) in CI; it costs money. Before claiming done, run BOTH gates + paste.
 
 ## Running — always through the CLI
 
@@ -78,14 +85,16 @@ One companion rule ships under `.claude/rules/`:
   loop). A tool ERROR is returned as informative TEXT the planner recovers from, never raised into the loop.
 
 - **Judgement-only SUBMIT + assemble-on-read.** The planner's SUBMIT type `TaskOutcome` (`schema.py`) is
-  **citation-only**: `answer`/`summary` plus reference lists (`servers_loaded`, `tools_used`,
-  `cited_criteria`, optional `judge_call_id`). It structurally has **no field** for raw tool outputs,
-  per-criterion met/unmet, a score, or a reward — so the policy CANNOT self-report evidence.
-  `assemble.assemble_outcome` re-sources the heavy facts from the trace's `tool_call`s (successful
-  `load_server`/`call_tool`), cross-checks the self-report, and flags fabrication: a claimed-but-unbacked
-  server/tool lands in `unbacked_servers` / `unbacked_tools`, a cited criterion with no recorded rubric
-  entry lands in `cited_unknown`. This assembly runs at EVERY read path (live `cli`, `render`, `export`),
-  so labels are facts. Do NOT add an evidence/score field to the SUBMIT type or a second facts derivation.
+  **citation-only**: `answer`/`summary` plus reference lists (`servers_loaded`, `tools_used`, optional
+  `judge_call_id`). It structurally has **no field** for raw tool outputs, per-criterion met/unmet, a
+  score, or a reward — so the policy CANNOT self-report evidence. `assemble.assemble_outcome` re-sources
+  the heavy facts from the trace's `tool_call`s (successful `load_server`/`call_tool`), cross-checks the
+  self-report, and flags fabrication: a claimed-but-unbacked server/tool lands in `unbacked_servers` /
+  `unbacked_tools`. There is deliberately **no `cited_criteria`**: the rubric is a trainer/eval-side
+  artifact the agent never sees at inference (as in ATLAS), so citing it would be meaningless — the real
+  per-criterion signal is the deterministic `criteria_facts`. This assembly runs at EVERY read path (live
+  `cli`, `render`, `export`), so labels are facts. Do NOT add an evidence/score field to the SUBMIT type,
+  reintroduce a policy-facing rubric citation, or add a second facts derivation.
 
 - **rlm-kit's hardest invariant holds here: toolscout produces TRAJECTORIES, never reward.** ATLAS is a
   rubric-based RFT (*training*) paper; toolscout is the **rollout stage ONLY**. The rubric is decomposed
@@ -97,6 +106,16 @@ One companion rule ships under `.claude/rules/`:
   note + met/unmet), never an aggregate reward. Every exporter passes `reward=None` (`rl_export.py`).
   Reward composition, the rubric's numeric scoring, credit assignment, and GRPO/SFT live in a SEPARATE
   fine-tuning project. A prompt/policy convention that improves rollout QUALITY is in scope; a reward is not.
+
+- **The `eval/` member is a reward-free MEASUREMENT scorer — compatible with the above, not an exception.**
+  `toolscout-eval` scores completed trajectories with a 4-category 0–10 LLM-as-judge to REPORT quality
+  (trace → judge → report, a terminal scorecard of per-category MEANS, TF primary). This does NOT violate
+  "trajectories, never reward": the invariant fences a signal flowing BACK into a trace/dataset/export a
+  trainer consumes; an eval score flows the opposite, terminal direction and never re-enters the rollout.
+  The paper itself MANDATES the eval judge be separate from the training reward. Keep it that way: eval
+  emits NO composite `R(τ)`/reward, writes only to `output/eval/`, lives OUT of the toolscout wheel, and is
+  a ONE-WAY reader (`toolscout` must never import `toolscout_eval`). The training reward + GRPO stay in the
+  downstream trainer, never here.
 
 - **MCP is CLIENT-ONLY; external servers connect EAGERLY, host-side, pre-run.** toolscout never IS an MCP
   server and never bundles one — `TS_TOOLSPACE` points it at someone else's servers (a JSON list of specs).
@@ -148,18 +167,10 @@ One companion rule ships under `.claude/rules/`:
 - Keep `pyproject.toml` `[project].version` and `toolscout.__version__` in sync. On a bump, fold the
   release's changes into `CHANGELOG.md` (under the new version).
 
-## Relationship to rlm-kit / promote-back
+## Relationship to rlm-kit
 
 - toolscout is the dogfooding consumer that drives rlm-kit's design loop: when toolscout forces a
   workaround, log the **reusable** gap and fix it GENERICALLY in the kit (the base/wrap split — a generic
   base + syntactic guard + factory in rlm-kit, the provider + tracing here). Never special-case toolscout
   in the kit; consumer-specific values (`TS_*` roles, the `TaskOutcome` schema, the rubric categories, the
   toolspace) stay HERE.
-- Candidates toolscout surfaces to promote INTO rlm-kit (tracked in `CHANGELOG.md`):
-  - **A multi-server MCP ISL/ITL catalog bridge.** rlm-kit's single-server bridge (`_MCPBridge`) and
-    `mcp_tools` are private / the wrong shape (one server's tools as dspy.Tools) for a MANY-server
-    progressive catalog, so `mcp_toolspace.py` carries a self-contained bridge. Generalizing it into the
-    kit would let that module shrink to a thin adapter.
-  - **A generic rubric / criteria-facts helper** (if it proves reusable) — the rubric-as-labels +
-    deterministic per-criterion facts surface, with `category` kept an opaque string in the kit so the
-    ATLAS TF/TA/TG/PA taxonomy stays toolscout's domain.

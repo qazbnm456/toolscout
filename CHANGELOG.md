@@ -12,21 +12,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
-### Promote-back candidates (proposals to rlm-kit — not yet done)
+### Added
 
-These are reusable gaps toolscout surfaced while dogfooding the kit. They are PROPOSALS to promote INTO
-rlm-kit generically (never a special-case for toolscout); until then they live self-contained here.
+- **`toolscout-eval` workspace member** — an OFFLINE, reward-free, 4-category (TF/TA/TG/PA) 0–10
+  LLM-as-judge evaluation scorer reproducing ATLAS's evaluation methodology. It lives OUT of the toolscout
+  wheel, is a one-way reader of the trace/`TaskResponse` contract (`toolscout` never imports it), reuses
+  `rlm_kit.tools.make_model_tool`, and emits a scorecard of per-category MEANS (TF primary) — never a
+  composite reward. Measurement flows trace → judge → report (terminal); it never feeds back into a
+  trace/dataset/export. This is compatible with "trajectories, never reward" precisely because the paper
+  itself mandates the eval judge be separate from the training reward.
+- `rubric.validate_rubric` — a DETERMINISTIC structural lint of a rubric (category coverage, unique names,
+  non-empty + plausibly-observable descriptions), NOT a semantic-quality judge.
+- `toolscout rubric-batch <taskset> <out-dir>` — batch per-task rubric generation for the rollout
+  workflow (generate offline once, then `solve --rubric <that task's rubric>` so a live run's labels vary
+  per task instead of carrying the generic skeleton).
 
-- **A multi-server MCP ISL/ITL catalog bridge.** `mcp_toolspace.py` carries its own per-server sync
-  bridge (async `ClientSession` on a background thread/loop, `run_coroutine_threadsafe(...).result()`)
-  because rlm-kit's single-server bridge (`_MCPBridge`) is private and its `mcp_tools` yields one server's
-  tools as dspy.Tools — the wrong shape for a MANY-server *progressive* (load-on-demand) catalog. Proposal:
-  a public multi-server catalog bridge in the kit, which would let `mcp_toolspace.py` shrink to a thin
-  adapter. `proposed`.
-- **A generic rubric / criteria-facts surface.** The rubric-as-labels decomposition + deterministic
-  per-criterion facts (`rubric.py`) may be reusable beyond toolscout. Proposal: a kit-level rubric/criteria
-  helper with `category` kept an OPAQUE string, so the ATLAS TF/TA/TG/PA taxonomy stays toolscout's domain.
-  `proposed`.
+### Changed
+
+- The config judge-sentinel guard now fires ONLY when the judge is ENABLED (`TS_ENABLE_JUDGE=1`). With the
+  judge off (the default) its model is inert, so a Claude-subscription planner+specialist is a valid
+  config — surfaced by the first live subscription run against a real MCP server.
+
+### Removed
+
+- **`cited_criteria`** from `TaskOutcome` and `AssembledOutcome` (with `cited_unknown`). The agent never
+  sees the rubric at inference (as in ATLAS), so a policy self-citation of criterion names is meaningless
+  and produced a spurious fabrication tell; the per-criterion signal is the deterministic `criteria_facts`.
+  The fabrication tells are now `unbacked_servers` / `unbacked_tools` only, and `run_labels` no longer
+  carries `cited_unknown` (a dataset-shape note for a downstream training consumer).
 
 ## [0.1.0] - 2026-07-16
 
@@ -51,7 +64,10 @@ recorded as a reward-free trajectory. The ATLAS approach mapped onto rlm-kit, fu
 - **Judgement-only SUBMIT + assemble-on-read** (`schema.py`, `assemble.py`): `TaskOutcome` is
   citation-only (no field for raw outputs, scores, or reward), so the policy cannot self-report evidence.
   `assemble_outcome` re-sources `servers_loaded` / `tools_used` from the trace and flags fabrication in
-  `unbacked_servers` / `unbacked_tools` / `cited_unknown`. Runs at every read path (live, render, export).
+  `unbacked_servers` / `unbacked_tools`. Runs at every read path (live, render, export). The SUBMIT has
+  deliberately no `cited_criteria` — the rubric is a trainer/eval-side artifact the agent never sees at
+  inference (as in ATLAS), so the per-criterion signal is the deterministic `criteria_facts`, never a
+  policy self-citation.
 - **Reward-free dataset export** (`rl_export.py`): trajectory splits (SFT turns / planner toolspace-ops /
   judge), per-run intrinsic labels + objective metrics, and the ATLAS rubric signal (the rubric + its
   deterministic per-criterion facts + the opt-in judge's observations) — all with `reward=None`. Reward,
