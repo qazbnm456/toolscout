@@ -77,8 +77,15 @@ each a mono pill showing the configured model name from `GET /v1/config` on page
 dot when set, NO pulse; truncates with ellipsis). Then a theme toggle (`☾`/`☀`).
 
 ### 5.2 Task input (left rail, top) — no feed
-`▾ TASK` panel: a `<textarea>` (sans, for the human task), a **⚡ load an example task** control (from
-`GET /v1/examples`, wired to the offline demo toolspace so a live solve resolves), a **Solve ▶** button
+`▾ TASK` panel. The head row carries a compact **⚡ example…** select on its right (from
+`GET /v1/examples`, wired to the offline demo toolspace so a live solve resolves): picking one fills the
+textarea + shows a note, then the select snaps back to its placeholder — it is a picker, not a state
+(the note hides on the first manual task edit). Below, the primary flow: the `<textarea>` (sans, for the
+human task), a **RUN ID** row — a mono input whose placeholder live-previews the id the solve will file
+under (auto-derived from the task; `RunCore.deriveRunId`/`slugId` mirror app.py's `_derive_run_id`/
+`_slug_id`, and solve() always sends the previewed id explicitly so the shown id IS the id); typing
+overrides it, with a `→ runs as …` hint when sanitization changes it (folding, and the 120-char length
+cap — `_RUN_ID_MAX`, mirrored — that keeps the artifact filename under NAME_MAX) — then a **Solve ▶** button
 (primary, `--signal`, disabled until the task is non-empty / while a run streams — "Solving…"), and a
 note that live solve needs the `live` extra + Deno + creds. A divider `or load a past run` then a run-id
 input bound to a `<datalist>` from `GET /v1/runs` + Load.
@@ -94,7 +101,7 @@ primary line, a right-meta. Families:
 - `task.judge` , checked-circle , `--judge`/`--bad` (label **Rubric judge**)
 - `task.skill.read` , book , `--skill` (label **Read skill**)
 - `task.specialist.escalation` , radial , `--specialist` (label **Ask specialist**)
-- `task.run.created` / `completed` , flag , `--signal` (**Solve started** / **Finalized**)
+- `task.run.created` / `completed` , flag , `--signal` (**Solve started** · meta `run id` / **Finalized**)
 
 Live plan.step reasoning is NOT in this feed (toolscout's `main_step` flushes post-hoc — see the README);
 it lives in the Trajectory drawer. The live feed is the ACTION stream, which for a toolspace agent is the

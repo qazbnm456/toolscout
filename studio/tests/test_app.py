@@ -113,6 +113,18 @@ def test_run_id_path_is_slug_sanitized_against_traversal(tmp_path, monkeypatch):
     assert client.get("/v1/runs/..%2F..%2Fetc%2Fpasswd").status_code == 404
 
 
+def test_run_id_is_length_capped(tmp_path, monkeypatch):
+    # an over-long explicit run_id becomes a filename; without the cap the artifact write dies with
+    # ENAMETOOLONG. The cap re-strips so truncation never leaves a trailing '-'/'.' (kept a valid slug).
+    monkeypatch.setattr(appmod, "ARTIFACTS", tmp_path)
+    long = appmod._slug_id("x" * 500)
+    assert len(long) == appmod._RUN_ID_MAX and len(appmod._response_path("y" * 500).name) < 255
+    edge = appmod._slug_id("a" * (appmod._RUN_ID_MAX - 1) + "-tail")   # cut lands on the '-'
+    assert len(edge) <= appmod._RUN_ID_MAX and not edge.endswith(("-", "."))
+    # idempotent: re-slugging a capped id (every read path re-slugs) is identity
+    assert appmod._slug_id(long) == long and appmod._slug_id(edge) == edge
+
+
 # ---- replay SSE: always ends with completed (truncated trace guard) ----
 
 def _write_trace(tmp_path, lines):

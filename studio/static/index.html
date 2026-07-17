@@ -22,13 +22,18 @@
   <main class="layout">
     <section class="rail">
       <div class="panel input-panel">
-        <div class="panel-label">▾ Task</div>
+        <div class="panel-label label-row"><span>▾ Task</span>
+          <select id="example-pick" class="example-pick" aria-label="load an example task"><option value="">⚡ example…</option></select>
+        </div>
         <textarea id="task" class="text-input mono-area sans-area" spellcheck="true" rows="6"
           placeholder="Describe a task to solve over the toolspace, e.g. &quot;What is 6 * 7, then upper-case the word 'ok'?&quot;"></textarea>
-        <div class="row demo-row">
-          <select id="example-pick" class="text-input"><option value="">⚡ load an example task…</option></select>
-        </div>
         <div class="fixture-note" id="example-note" hidden></div>
+
+        <div class="row runid-row">
+          <label class="field-tag" for="run-id">run id</label>
+          <input id="run-id" class="text-input" spellcheck="false" autocomplete="off" />
+        </div>
+        <div class="hint" id="run-id-hint" hidden></div>
 
         <div class="row solve-row">
           <button id="solve" class="btn btn-primary" disabled>Solve <span class="arrow">▶</span></button>

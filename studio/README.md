@@ -11,7 +11,8 @@ Two pieces:
 1. **SSE server** — serves a run's structured `TaskResponse` and **replays the run's trace as
    Server-Sent Events**, so the frontend can render the build-up step by step. It can also drive ONE
    live solve and stream its **action** trajectory.
-2. **Web frontend** — a toolspace console: a task-input box (type one, or load an example), a live event
+2. **Web frontend** — a toolspace console: a task-input box (type one, or load an example) with a
+   **run-id field that previews the auto-derived id and takes a manual override**, a live event
    feed, an answer card whose **frame is keyed to the trace-derived grounding** (not the planner's
    self-report), the **toolspace exploration** as the star view, and a Trajectory drawer that replays the
    RLM run turn by turn.

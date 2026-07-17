@@ -109,12 +109,21 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+# The hard cap on a slug id's length. The slug is pure ASCII by construction, so chars == bytes: the
+# artifact filename (`{slug}.jsonl`) stays far under the filesystem's 255-byte NAME_MAX, instead of an
+# over-long explicit run_id failing the trace/response write with ENAMETOOLONG. Mirrored client-side by
+# `RunCore.slugId` (run-core.js), so the console's preview/`→ runs as` hint shows the capped id up front.
+_RUN_ID_MAX = 120
+
+
 def _slug_id(raw: str) -> str:
     """A filesystem-/URL-safe id token: keep [A-Za-z0-9._-], fold the rest (incl. `/`) to '-', strip
     leading/trailing '.'/'-' so it can NEVER become a traversal segment (`..`, an absolute path, a nested
-    dir). A run_id can embed user input (a derived task slug), and it becomes a file path — the console
-    must not open a path traversal on itself."""
+    dir), and cap at `_RUN_ID_MAX` chars (re-stripped so truncation never leaves a trailing '-'/'.'). A
+    run_id can embed user input (a derived task slug), and it becomes a file path — the console must not
+    open a path traversal on itself."""
     token = re.sub(r"[^A-Za-z0-9._-]+", "-", raw or "").strip("-.")
+    token = token[:_RUN_ID_MAX].rstrip("-.")
     return token or "unknown"
 
 

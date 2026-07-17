@@ -29,6 +29,24 @@
     return { status: "failed", stage: "failed", wroteResponse: false };
   }
 
+  // MIRRORS of the backend's run-id derivation (app.py `_slug_id` / `_derive_run_id`), so the console
+  // can PREVIEW the id a solve will get before it runs. app.js always sends the previewed id explicitly
+  // (the server re-sanitizes — slugging is idempotent), so the shown id IS the id: no client/server
+  // derivation drift can rename the artifacts behind the user's back.
+  var RUN_ID_MAX = 120;   // == app.py `_RUN_ID_MAX` (NAME_MAX headroom; the slug is ASCII, chars == bytes)
+  function slugId(raw) {
+    var token = String(raw == null ? "" : raw)
+      .replace(/[^A-Za-z0-9._-]+/g, "-")
+      .replace(/^[-.]+|[-.]+$/g, "");
+    token = token.slice(0, RUN_ID_MAX).replace(/[-.]+$/, "");
+    return token || "unknown";
+  }
+  function deriveRunId(task) {
+    var words = String(task == null ? "" : task).split(/\s+/).filter(Boolean);
+    var base = words.length ? words.slice(0, 6).join(" ").slice(0, 48) : "task";
+    return slugId(base) || "task";
+  }
+
   // Derive the card's alloy STATE from a TaskResponse — keyed to the trace-re-sourced facts, not the
   // planner's self-report → { key, head, tells }:
   //   "iron"      — status failed/refused, or no usable answer (a REFUSAL card; the effort still shows)
@@ -48,5 +66,5 @@
     return { key: "grounded", head: "GROUNDED", tells: 0 };
   }
 
-  return { planTerminal: planTerminal, deriveState: deriveState };
+  return { planTerminal: planTerminal, deriveState: deriveState, slugId: slugId, deriveRunId: deriveRunId };
 });

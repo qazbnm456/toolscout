@@ -66,7 +66,7 @@
       label: d.circuit_broken ? "Rubric judge · circuit broke" : d.error ? "Rubric judge · error" : "Rubric judge", meta: d.n != null ? `${d.n} obs` : "" }),
     "task.skill.read": (d) => ({ icon: "skill", fam: "fam-skill", label: "Read skill", meta: d.name }),
     "task.specialist.escalation": (d) => ({ icon: "specialist", fam: "fam-specialist", label: "Ask specialist", detail: d.question, reason: true }),
-    "task.run.created": () => ({ icon: "flag", fam: "fam-signal", label: "Solve started" }),
+    "task.run.created": (d) => ({ icon: "flag", fam: "fam-signal", label: "Solve started", meta: d.run_id || "" }),
     "task.run.completed": (d) => ({ icon: "flag", fam: d._error ? "fam-bad" : "fam-signal", label: d._error ? "Stream error" : "Finalized", detail: d._error }),
   };
   function addFeedRow(event, data) {
@@ -226,14 +226,32 @@
   function validInput() { return !!$("#task").value.trim(); }
   function refreshSolveBtn() { $("#solve").disabled = busy || !validInput(); }
 
+  // The id the NEXT solve will run under: an explicit `#run-id` wins (sanitized), else the task-derived
+  // slug — the same derivation the server applies (RunCore mirrors app.py). solve() always SENDS it, so
+  // the previewed id is the filed id.
+  function effectiveRunId(task) {
+    const raw = $("#run-id").value.trim();
+    return raw ? RunCore.slugId(raw) : RunCore.deriveRunId(task);
+  }
+  function refreshRunIdPreview() {
+    const t = $("#task").value.trim();
+    $("#run-id").placeholder = t ? RunCore.deriveRunId(t) : "auto — derived from the task";
+    const raw = $("#run-id").value.trim(), slug = raw ? RunCore.slugId(raw) : "";
+    const drifted = raw && slug !== raw;   // the override needs sanitizing — show what it becomes
+    $("#run-id-hint").hidden = !drifted;
+    $("#run-id-hint").textContent = drifted ? `→ runs as ${slug}` : "";
+  }
+
   async function solve(overwrite) {
     const task = $("#task").value.trim();
     if (!task) return;
     CURRENT_TASK = task;
+    const runId = effectiveRunId(task);
+    currentRunId = runId;
     feedEl.innerHTML = ""; showSkeleton(); traj.reset(); setBusy(true);
     let finalResp = null, finalStatus = null, err = null;
     try {
-      await streamSSE("POST", "/v1/solve", { task, overwrite: !!overwrite }, (event, data) => {
+      await streamSSE("POST", "/v1/solve", { task, run_id: runId, overwrite: !!overwrite }, (event, data) => {
         if (event === "task.run.created") { currentRunId = data.run_id || currentRunId; addFeedRow(event, data); }
         else if (event === "task.run.completed") { finalResp = data; finalStatus = data.status; addFeedRow(event, data); }
         else addFeedRow(event, data);
@@ -242,7 +260,7 @@
     setBusy(false);
     const plan = RunCore.planTerminal(err, finalStatus);
     if (plan.stage === "existing") {   // 409 — a finalized run owns this id
-      if (confirm(`A finalized run already exists for this task. Replace it?`)) return solve(true);
+      if (confirm(`A finalized run already exists for run id "${runId}". Replace it?`)) return solve(true);
       showEmpty(); return;
     }
     if (plan.stage === "failed") { feedError(err); renderResult({ status: "failed", task: CURRENT_TASK, error: err && (err.detail || err.message), refusal: { reason: "stream_error" } }); return; }
@@ -315,18 +333,25 @@
   });
 
   // ── wiring ──────────────────────────────────────────────────────────────
-  $("#task").addEventListener("input", refreshSolveBtn);
+  // A manual task edit invalidates the example note (the text no longer matches the loaded example) and
+  // re-derives the run-id preview. A programmatic fill (the example pick) fires no `input`, so its note
+  // survives until the user actually types.
+  $("#task").addEventListener("input", () => { $("#example-note").hidden = true; refreshSolveBtn(); refreshRunIdPreview(); });
+  $("#run-id").addEventListener("input", refreshRunIdPreview);
   $("#solve").addEventListener("click", () => solve(false));
   $("#load").addEventListener("click", () => loadRun($("#load-id").value.trim()));
   $("#load-id").addEventListener("keydown", (e) => { if (e.key === "Enter") loadRun($("#load-id").value.trim()); });
   $("#example-pick").addEventListener("change", (e) => {
-    const ex = e.target._examples || []; const f = ex[Number(e.target.value)];
-    if (!f) { $("#example-note").hidden = true; return; }
+    const raw = e.target.value;
+    e.target.value = "";               // snap back to the "⚡ example…" placeholder — it is a picker,
+    if (raw === "") return;           // not a state, and re-picking the same example must re-fire.
+    const f = (e.target._examples || [])[Number(raw)];   // ("" would coerce to index 0 — guard first)
+    if (!f) return;
     $("#task").value = f.task;
     $("#example-note").hidden = false;
     $("#example-note").innerHTML = `<b>${esc(f.name)}</b> — ${esc(f.note || "")}`;
-    refreshSolveBtn();
+    refreshSolveBtn(); refreshRunIdPreview();
   });
 
-  initTheme(); loadConfig(); loadExamples(); refreshRuns(); showEmpty();
+  initTheme(); loadConfig(); loadExamples(); refreshRuns(); showEmpty(); refreshRunIdPreview();
 })();

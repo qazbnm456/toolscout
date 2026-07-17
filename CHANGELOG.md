@@ -49,6 +49,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
   `_cap`-bounded so untrusted output stays a single flat line; it records an `examples_included` field only
   when non-empty (additive within trace/v1).
 
+- **Studio: the run id is now visible and overridable before a solve.** The Task panel gains a `RUN ID`
+  row whose placeholder live-previews the id the run will file under — `RunCore.deriveRunId`/`slugId` are
+  exact JS mirrors of the server's `_derive_run_id`/`_slug_id` (parity-pinned in `run-core.test.js`) —
+  and typing overrides it (with a `→ runs as …` hint when sanitization changes it). `solve()` now always
+  sends the previewed id explicitly, so the shown id is the filed id (no client/server drift can rename
+  the artifacts); the `Solve started` feed row and the 409 overwrite prompt name the id too. `_slug_id`
+  now also length-caps at 120 chars (`_RUN_ID_MAX`, re-stripped so truncation stays a valid slug) so an
+  over-long explicit id can no longer fail the artifact write with ENAMETOOLONG — the mirrored cap means
+  the `→ runs as …` hint shows the truncated id up front. The example
+  picker moved out of the textarea→Solve flow into the panel head as a compact `⚡ example…` select that
+  snaps back after filling the task (a picker, not a state; its note hides on the first manual edit).
+
 ### Changed
 
 - **Planner WORKFLOW gains a need-based CHECKPOINT (verify) step** (`agent.py` `INSTRUCTIONS`) to cure
