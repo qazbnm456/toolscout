@@ -66,6 +66,10 @@ class ToolscoutConfig:
     # Untrusted-input cap: server/tool descriptions + schemas are server-authored text entering context.
     max_desc_chars: int = 1200      # per description/schema rendered into the REPL
     max_describe_batch: int = 8     # tools per describe_tools call (keep under max_output_chars head+tail)
+    # PTC repeat guard: how many IDENTICAL (server, tool, args) call_tool dispatches a run allows before
+    # the call is refused with guiding TEXT (pre-dispatch). Breaks an unconscious re-fetch loop or an
+    # identical-args retry storm before it hammers a third-party MCP server. ≤0 disables the guard.
+    max_repeat_calls: int = 3
 
     # ── The OPT-IN rubric judge tool (a verify-before-finalize self-check) ────────────────────────
     enable_judge: bool = False      # OFF by default: purest w.r.t. "trajectories, never reward"
@@ -139,6 +143,7 @@ class ToolscoutConfig:
             mcp_timeout=float(os.getenv("TS_MCP_TIMEOUT", "60")),
             max_desc_chars=int(os.getenv("TS_MAX_DESC_CHARS", "1200")),
             max_describe_batch=int(os.getenv("TS_MAX_DESCRIBE_BATCH", "8")),
+            max_repeat_calls=int(os.getenv("TS_MAX_REPEAT_CALLS", "3")),
             enable_judge=enable_judge,
             judge_model=judge,
             judge_base_url=os.getenv("TS_JUDGE_BASE_URL") or base_url,

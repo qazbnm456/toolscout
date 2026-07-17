@@ -91,6 +91,18 @@ def test_trace_facts_are_deterministic_counts(tmp_path):
     assert f["finalized"] is True
 
 
+def test_trace_facts_count_repeat_call_as_predispatch(tmp_path):
+    """A repeat-guard refusal is a PRE-dispatch reject (PA signal), like unknown_*/not_loaded — the
+    offline facts must classify it deterministically from the recorded reason tag."""
+    same = ("call_tool", {"server": "math", "tool": "add", "args": {"a": 6, "b": 7}})
+    events = run_recorded(tmp_path, calls=[("load_server", {"server": "math"})] + [same] * 4,
+                          outcome={"answer": "13"})
+    f = trace_facts(events)
+    assert f["call_ok_count"] == 3                 # the budgeted identical dispatches
+    assert f["call_fail_count"] == 1 and f["predispatch_reject_count"] == 1  # the 4th, reason=repeat_call
+    assert f["backend_error_count"] == 0 and f["arg_error_count"] == 0
+
+
 def test_criteria_facts_one_per_criterion_no_score(tmp_path):
     events = run_recorded(tmp_path, calls=[("load_server", {"server": "math"})],
                           outcome={"answer": "x"})

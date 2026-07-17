@@ -63,6 +63,63 @@ def test_unknown_server_load_is_friendly():
     assert "No server named 'nope'" in out
 
 
+def test_repeat_call_guard_refuses_identical_args(tmp_path):
+    """The PTC repeat guard: past max_repeat_calls IDENTICAL dispatches, call_tool refuses with guiding
+    TEXT (pre-dispatch, reason="repeat_call") — an unconscious re-fetch loop breaks instead of storming
+    the backend. The key is the COERCED args in canonical JSON, so dict key order must not matter."""
+    from rlm_kit import TraceRecorder
+    from rlm_kit.trace import load_events
+
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r"):
+        _ts, tools = _tools()
+        tools["load_server"]("math")
+        for _ in range(3):   # up to the budget, identical args dispatch normally
+            assert tools["call_tool"]("math", "add", {"a": 6, "b": 7}) == 13
+        blocked = tools["call_tool"]("math", "add", {"b": 7, "a": 6})   # same call, swapped key order
+        assert "repeat-call guard" in blocked and "IDENTICAL args" in blocked
+        # the key is the COERCED args: "6"/"7" coerce to 6/7, so this is the same identity — and the
+        # refusal persists past the first block (attempt #5).
+        still = tools["call_tool"]("math", "add", {"a": "6", "b": "7"})
+        assert "repeat-call guard" in still and "#5" in still
+        assert tools["call_tool"]("math", "add", {"a": 1, "b": 2}) == 3  # different args still dispatch
+    calls = [e["payload"] for e in load_events(path, "r")
+             if e["type"] == "tool_call" and e["payload"]["tool"] == "call_tool"]
+    fails = [p for p in calls if not p["ok"]]
+    assert len(fails) == 2 and {p["reason"] for p in fails} == {"repeat_call"}
+    assert sum(1 for p in calls if p["ok"]) == 4   # 3 budgeted identical + 1 different-args
+
+
+def test_repeat_call_guard_key_never_raises():
+    """The guard's KEY CONSTRUCTION must degrade, never raise: a dict/Any-typed param passes an
+    arbitrary planner dict through coercion untouched, and json.dumps(sort_keys=True) TypeErrors on
+    mixed-type nested keys, ValueErrors on circular values, RecursionErrors on pathological nesting —
+    each must fall back, and identical dicts must still share a key. (Scope note: this pins the key
+    helper only. Serializing such exotic args in the trace RECORD is a separate, pre-existing rlm-kit
+    gap — a raise-proof serialize belongs in the kit's TraceRecorder, not here.)"""
+    from toolscout.toolspace import _args_key, _canonical_args
+
+    assert _canonical_args({"b": 1, "a": 2}) == _canonical_args({"a": 2, "b": 1})  # order-insensitive
+    weird = {"filters": {1: "a", "b": 2}}   # json.dumps(sort_keys=True) raises TypeError on this
+    assert _canonical_args(weird) == _canonical_args(weird)   # falls back to repr, still deterministic
+    circular: dict = {}
+    circular["self"] = circular              # json.dumps raises ValueError on this
+    assert _canonical_args(circular)         # repr handles it ({'self': {...}})
+    deep: list = []
+    for _ in range(50_000):                  # py3.13 C-stack guard: dumps AND repr both RecursionError
+        deep = [deep]
+    assert _canonical_args({"v": deep}).startswith("<uncanonicalizable:")
+    assert _args_key({"s": "\ud800"})        # a lone surrogate must not make the digest .encode raise
+
+
+def test_repeat_call_guard_zero_disables():
+    ts = Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y", max_repeat_calls=0))
+    tools = {t.__name__: t for t in build_toolspace_tools(ts)}
+    tools["load_server"]("math")
+    for _ in range(6):   # no guard: every identical call dispatches
+        assert tools["call_tool"]("math", "add", {"a": 6, "b": 7}) == 13
+
+
 def test_describe_respects_batch_cap():
     ts = Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y", max_describe_batch=1))
     tools = {t.__name__: t for t in build_toolspace_tools(ts)}

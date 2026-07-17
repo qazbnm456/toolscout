@@ -29,6 +29,8 @@ ERRORS are returned as informative TEXT the planner reacts to, never raised into
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Callable, Optional
 
 from rlm_kit.trace import record_tool_call
@@ -36,6 +38,29 @@ from rlm_kit.trace import record_tool_call
 from . import scaffolding
 from .catalog import Catalog
 from .scaffolding import ArgError, coerce_args, render_server_index, render_tool, to_native, unknown_server_error, unknown_tool_error
+
+
+def _canonical_args(args: dict) -> str:
+    """A canonical, key-order-insensitive string of a coerced-args dict — the repeat guard's identity.
+    Best-effort and MUST NOT raise on planner-supplied values ("errors are text, never a raise"):
+    sort_keys TypeErrors on mixed-type dict keys, circular values ValueError, pathological nesting
+    RecursionErrors — degrade to repr (order-sensitive but deterministic for the identical-loop case the
+    guard exists to break), then to a type tag. `default=str` may merge exotic values that render
+    identically; acceptable for a loop-breaker."""
+    try:
+        return json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+    except (TypeError, ValueError, RecursionError):
+        try:
+            return repr(args)
+        except RecursionError:   # pathologically deep: give up on identity, keep the loop alive
+            return f"<uncanonicalizable:{type(args).__name__}>"
+
+
+def _args_key(args: dict) -> str:
+    """Digest of the canonical args — a BOUNDED key for the per-run attempts counter (a huge arg value
+    must not be retained host-side per distinct call). surrogatepass: a lone surrogate in a planner
+    string must not make .encode raise."""
+    return hashlib.sha256(_canonical_args(args).encode("utf-8", "surrogatepass")).hexdigest()
 
 
 def _cap_result(value, limit: int = 4000) -> str:
@@ -68,9 +93,12 @@ class Toolspace:
                                   else getattr(config, "max_desc_chars", 1200))
         self.max_describe_batch = int(max_describe_batch if max_describe_batch is not None
                                       else getattr(config, "max_describe_batch", 8))
+        self.max_repeat_calls = int(getattr(config, "max_repeat_calls", 3))
         self._loaded: set[str] = set()
         self._proxy_shown: bool = False   # the MCPServer-proxy hint rides only the FIRST load_server
         self._observed: dict[tuple[str, str], str] = {}  # (server, tool) -> last capped result, this run
+        # (server, tool, canonical args) -> dispatch attempts, this run — the repeat guard's counter.
+        self._call_attempts: dict[tuple[str, str, str], int] = {}
 
     def is_loaded(self, server: str) -> bool:
         return server in self._loaded
@@ -172,7 +200,8 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, Optional[dict]], o
     def call_tool(server: str, tool: str, args: Optional[dict] = None):
         """PTC. Invoke `tool` on a loaded `server` with `args` (a dict of named parameters). Returns the
         tool's result as a NATIVE Python value — keep it in a variable and compute on it; do not re-call
-        to re-read. On a bad server/tool/arg you get a short, fixable error STRING instead of a result."""
+        to re-read (identical re-calls are refused past a small per-run budget). On a bad server/tool/arg
+        you get a short, fixable error STRING instead of a result."""
         server, tool = str(server), str(tool)
         if not ts.catalog.has_server(server):
             names = [s.name for s in ts.catalog.servers()]
@@ -202,6 +231,23 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, Optional[dict]], o
             record_tool_call("call_tool", args={"tool": tool, "args": args}, server=server, ok=False,
                              reason="arg_error")
             return f"argument error: {exc}"
+        # PTC repeat guard: an IDENTICAL (server, tool, args) re-call can only re-read a value the planner
+        # already holds — or re-hammer a failing backend with the same input. Refuse past the per-run
+        # budget, PRE-dispatch, as guiding TEXT (never a raise), so an unconscious re-fetch loop breaks
+        # after max_repeat_calls instead of storming a third-party MCP server. Keyed on a DIGEST of the
+        # COERCED args (canonical, key-order-insensitive, bounded); counts dispatch attempts, so a
+        # failing call is bounded too. Disabled (≤0) skips the counting entirely.
+        if ts.max_repeat_calls > 0:
+            key = (server, tool, _args_key(coerced))
+            attempts = ts._call_attempts[key] = ts._call_attempts.get(key, 0) + 1
+            if attempts > ts.max_repeat_calls:
+                record_tool_call("call_tool", args={"tool": tool, "args": coerced}, server=server,
+                                 ok=False, reason="repeat_call")
+                return (f"repeat-call guard: attempt #{attempts} of {server}:{tool} with IDENTICAL args "
+                        f"this run (limit {ts.max_repeat_calls}). Re-calling cannot return anything new "
+                        f"— reuse the value already in your REPL variable (fetch once, filter/compute in "
+                        f"the REPL; never re-fetch inside a loop), or change the args if you need "
+                        f"different data.")
         try:
             result = ts.catalog.call(server, tool, coerced)
         except Exception as exc:  # a backend/tool failure is data the planner recovers from, not a crash

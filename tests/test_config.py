@@ -39,6 +39,9 @@ def test_from_env_roles_and_defaults(monkeypatch):
     assert cfg.interpreter == "pyodide"
     assert cfg.connect == "eager"
     assert cfg.max_iterations == 45 and cfg.max_desc_chars == 1200
+    assert cfg.max_repeat_calls == 3
+    monkeypatch.setenv("TS_MAX_REPEAT_CALLS", "7")
+    assert ToolscoutConfig.from_env().max_repeat_calls == 7
 
 
 def test_enabled_judge_may_not_inherit_a_subscription_specialist(monkeypatch):

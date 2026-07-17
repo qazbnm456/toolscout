@@ -14,6 +14,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ### Added
 
+- **A PTC repeat-call guard in `call_tool`** (`TS_MAX_REPEAT_CALLS`, default 3; `0` disables): past the
+  budget, an IDENTICAL `(server, tool, args)` re-call is refused PRE-dispatch with guiding TEXT (recorded
+  as `ok=False, reason="repeat_call"` — a new additive reason value, counted into the PA
+  `predispatch_reject_count`), and the budget rides `run_start` meta like the other caps. Motivated by a
+  live run whose planner re-paginated the full HIBP breach catalog once per keyword — 10 identical
+  0→1000 sweeps, 210 calls in 46s against a third-party server; the guard breaks such unconscious
+  re-fetch loops (and identical-args retry storms) after 3 attempts while keeping the refusals in the
+  trace as a training-visible signal. The planner instructions now also say to fetch a dataset ONCE into
+  a variable and filter in the REPL rather than re-fetching per keyword.
+
 - **A curated default toolspace — `toolspace.example.json`** (tracked; local `toolspace.json` is now
   git-ignored, mirroring `.env`/`.env.example`). It declares two **hosted, no-key, first-party**
   streamable-HTTP security servers — ProjectDiscovery **Security Context** (`securitycontext.dev/mcp`:

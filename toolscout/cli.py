@@ -75,6 +75,7 @@ async def solve_task(
             # The budget THIS run ran under, so an offline reader computes hit_iteration_cap correctly.
             "max_iterations": config.max_iterations,
             "max_llm_calls": config.max_llm_calls,
+            "max_repeat_calls": config.max_repeat_calls,
             "toolspace": config.toolspace_path or "demo",
         }):
             return await _run()

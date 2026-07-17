@@ -126,14 +126,15 @@ def trace_facts(events: list[dict]) -> dict:
     servers_ok = sorted({p.get("server") for p in loads if p.get("ok") and p.get("server")})
     tools_ok = sorted({f"{p.get('server')}:{(p.get('args') or {}).get('tool')}"
                        for p in calls if p.get("ok")})
-    # Every failed call carries a `reason` tag (toolspace.call_tool): arg_error / unknown_* / not_loaded
-    # (pre-dispatch, a PA/selection signal) vs backend_error (the tool raised — a TG/grounding signal).
+    # Every failed call carries a `reason` tag (toolspace.call_tool): arg_error / unknown_* / not_loaded /
+    # repeat_call (pre-dispatch, a PA/selection signal) vs backend_error (the tool raised — a TG signal).
     def _reason(p: dict) -> str:
         return str(p.get("reason") or ("backend_error" if p.get("error") else "reject"))
     fails = [p for p in calls if not p.get("ok")]
     arg_errors = [p for p in fails if _reason(p) == "arg_error"]
     backend_errors = [p for p in fails if _reason(p) == "backend_error"]
-    predispatch_rejects = [p for p in fails if _reason(p) in ("unknown_server", "unknown_tool", "not_loaded")]
+    predispatch = ("unknown_server", "unknown_tool", "not_loaded", "repeat_call")
+    predispatch_rejects = [p for p in fails if _reason(p) in predispatch]
     described = sorted({d for p in describes for d in (p.get("described") or [])})
     finalized = any(e.get("type") == "result" for e in events)
     return {

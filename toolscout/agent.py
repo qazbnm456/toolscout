@@ -85,7 +85,9 @@ WORKFLOW — discover → materialize → describe → call/compute → verify �
    server. Read the signatures; note required params and types.
 4. PTC: `call_tool(...)` (or the MCPServer proxy — `srv.tool(**args)`), bind the result to a variable,
    and COMPUTE on it in the REPL (chain calls, do the arithmetic/parsing yourself). Do not re-call a
-   tool just to re-read a value you already have.
+   tool just to re-read a value you already have. To scan one dataset for SEVERAL keywords, fetch it
+   ONCE into a variable and filter in the REPL — never re-fetch it inside a loop (an identical re-call
+   is refused after a small per-run budget).
 5. AFTER each successful call, CHECKPOINT (verify): name every distinct value your FINAL answer needs —
    across ALL the servers the task spans — and mark which you already hold. Any still missing → take the
    next targeted action toward one of them (load / describe / call), then checkpoint again. NONE missing →
