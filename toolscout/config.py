@@ -87,7 +87,7 @@ class ToolscoutConfig:
     planner_max_tokens: Optional[int] = 16384
     # HARD ceiling on the single RLM episode. No outer multi-run loop (max_retries=1) — one task =
     # one trajectory, so the trace stays valid training data. RLMTaskError is INFRA, not a schema bug.
-    max_iterations: int = 30
+    max_iterations: int = 45
     max_llm_calls: int = 8          # caps ONLY specialist (llm_query) escalations
     max_output_chars: int = 8_000   # head+tail char cap dspy.RLM applies to each REPL output
 
@@ -152,7 +152,7 @@ class ToolscoutConfig:
             observe=_env_bool("TS_OBSERVE", False),
             adapter=os.getenv("TS_ADAPTER", "json"),
             planner_max_tokens=int(_pmt) if _pmt and _pmt.strip() else 16384,
-            max_iterations=int(os.getenv("TS_MAX_ITERATIONS", "30")),
+            max_iterations=int(os.getenv("TS_MAX_ITERATIONS", "45")),
             max_llm_calls=int(os.getenv("TS_MAX_LLM_CALLS", "8")),
             max_output_chars=int(os.getenv("TS_MAX_OUTPUT_CHARS", "8000")),
             enable_skills=_env_bool("TS_ENABLE_SKILLS", True),

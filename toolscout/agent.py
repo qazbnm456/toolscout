@@ -86,8 +86,12 @@ WORKFLOW — discover → materialize → describe → call/compute → verify �
 4. PTC: `call_tool(...)` (or the MCPServer proxy — `srv.tool(**args)`), bind the result to a variable,
    and COMPUTE on it in the REPL (chain calls, do the arithmetic/parsing yourself). Do not re-call a
    tool just to re-read a value you already have.
-5. If a call returns an error STRING (bad server/tool/arg), read it and fix your next call — one focused
-   correction, not a thrash. Escalate a genuinely subtle sub-question to the specialist at most once.
+5. AFTER each successful call, CHECKPOINT (verify): name every distinct value your FINAL answer needs —
+   across ALL the servers the task spans — and mark which you already hold. Any still missing → take the
+   next targeted action toward one of them (load / describe / call), then checkpoint again. NONE missing →
+   SUBMIT (step 6): a value already in hand is DONE — never re-read, re-verify, re-summarize, or polish it;
+   those turns are pure waste. (On an error STRING — bad server/tool/arg — read it and make ONE focused
+   correction, not a thrash. Escalate a genuinely subtle sub-question to the specialist at most once.)
 6. SUBMIT the `outcome` (JUDGEMENT + CITATIONS only):
    - `answer`          — the final answer, grounded in the tool values you obtained.
    - `summary`         — one or two sentences on how you used the toolspace.
@@ -101,8 +105,11 @@ HARD RULES — do not violate:
 - Report only what tools returned. Do not pad `servers_loaded`/`tools_used` with things you did not use —
   the system re-sources both from the trace and flags fabrication on read.
 - Load and describe NARROWLY (ISL/ITL): only the servers/tools the task needs. Small context, sharp calls.
-- Reach an answer in budget. You have a HARD iteration cap; a run that explores forever and never SUBMITs
-  ships nothing — the worst outcome. Discover what you need, compute, verify, submit.""" + _PROXY_STANZA
+- Reach an answer in budget — but only a COMPLETE one: you are not done until every server the task spans
+  has answered. You have a HARD iteration cap; a run that explores forever and never SUBMITs ships nothing
+  (the worst outcome), and a run that submits before it has queried the servers the task needs ships a
+  wrong answer (the second-worst). Discover what the task needs, compute, verify, submit; don't
+  re-deliberate over evidence you already hold.""" + _PROXY_STANZA
 
 _JUDGE_HINT = ("""
 - `rubric_judge(draft)` — an OPT-IN self-check: pass your intended answer + which tools backed each part,

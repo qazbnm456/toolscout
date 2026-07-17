@@ -148,7 +148,9 @@ def config() -> JSONResponse:
             "judge": os.environ.get("TS_JUDGE_LM") or specialist,
         },
         "toolspace": os.environ.get("TS_TOOLSPACE") or "demo",
-        "max_iterations": _int_env("TS_MAX_ITERATIONS", 30),
+        # Fallback MIRRORS toolscout config.py's `max_iterations` default (read env directly to stay
+        # replay-only-safe, so keep this in sync when that default changes).
+        "max_iterations": _int_env("TS_MAX_ITERATIONS", 45),
         "enable_judge": (os.environ.get("TS_ENABLE_JUDGE", "").strip().lower() in {"1", "true", "yes", "on"}),
     })
 

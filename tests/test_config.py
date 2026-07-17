@@ -38,7 +38,7 @@ def test_from_env_roles_and_defaults(monkeypatch):
     assert cfg.enable_judge is False
     assert cfg.interpreter == "pyodide"
     assert cfg.connect == "eager"
-    assert cfg.max_iterations == 30 and cfg.max_desc_chars == 1200
+    assert cfg.max_iterations == 45 and cfg.max_desc_chars == 1200
 
 
 def test_enabled_judge_may_not_inherit_a_subscription_specialist(monkeypatch):

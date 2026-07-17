@@ -17,6 +17,9 @@ output/
 # Secrets / local env (only .env.example is tracked)
 .env
 
+# Local toolspace (only toolspace.example.json is tracked — copy it and edit)
+toolspace.json
+
 # macOS
 .DS_Store
 

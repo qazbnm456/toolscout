@@ -1,0 +1,12 @@
+[
+  {
+    "name": "securitycontext",
+    "description": "Security Context (ProjectDiscovery): mines a PUBLIC GitHub repo's fix-commit history + disclosed CVEs into a hunting brief, recurring weak spots, and ranked variant leads. No key, public repos only; results are public and served best-effort. Read tools: get_security_context, get_vulnerability_leads, get_vulnerability, search_vulnerabilities. Prefer the reads; create_security_context triggers a build (10/day per IP).",
+    "url": "https://securitycontext.dev/mcp"
+  },
+  {
+    "name": "hibp",
+    "description": "Have I Been Pwned (official, first-party). No-key PUBLIC tools: hibp_list_breaches, hibp_get_breach, hibp_get_latest_breach, hibp_list_data_classes, hibp_get_pwned_passwords_range (k-anonymity: only a 5-char hash prefix is sent). The account / domain / stealer-log / subscription / domain-verification tools REQUIRE your own HIBP OAuth (hibp.mcp scope) or API key and fail closed without one — and calling them transmits an email/domain to HIBP.",
+    "url": "https://haveibeenpwned.com/mcp"
+  }
+]

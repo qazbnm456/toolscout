@@ -14,6 +14,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ### Added
 
+- **A curated default toolspace — `toolspace.example.json`** (tracked; local `toolspace.json` is now
+  git-ignored, mirroring `.env`/`.env.example`). It declares two **hosted, no-key, first-party**
+  streamable-HTTP security servers — ProjectDiscovery **Security Context** (`securitycontext.dev/mcp`:
+  repo security context + CVE/variant-lead search over public repos) and the **official Have I Been
+  Pwned** MCP (`haveibeenpwned.com/mcp`: breach catalog + k-anonymity password check) — so a new user gets
+  a real ATLAS ISL→ITL→PTC demo with zero signup. Both were security due-diligenced as accountable
+  first-party operators; the `toolscout/` guide's "The toolspace" section documents the trust disclosure
+  (Security Context publishes results + logs IPs; HIBP's account/stealer tools need the user's own OAuth
+  and fail closed) and a trust-ordered **opt-in catalog** (hosted vendor-official servers first; community
+  `npx`/`uvx` stdio servers flagged as HOST-RCE, opt-in, never default-on). `.env.example` keeps
+  `TS_TOOLSPACE` commented, so the toolspace stays opt-in-by-choice (no silent first-run egress).
+
 - **`toolscout-eval` workspace member** — an OFFLINE, reward-free, 4-category (TF/TA/TG/PA) 0–10
   LLM-as-judge evaluation scorer reproducing ATLAS's evaluation methodology. It lives OUT of the toolscout
   wheel, is a one-way reader of the trace/`TaskResponse` contract (`toolscout` never imports it), reuses
@@ -39,6 +51,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ### Changed
 
+- **Planner WORKFLOW gains a need-based CHECKPOINT (verify) step** (`agent.py` `INSTRUCTIONS`) to cure
+  post-grounding over-deliberation: after each successful call the planner re-derives every distinct value
+  its FINAL answer needs — **across ALL the servers the task spans** — acts on any still missing, and
+  SUBMITs the instant none are (a value in hand is DONE — no re-read/re-verify/re-summarize/polish). The
+  task-scoped need-gate curbs the observed wheel-spin (a single-tool task was finalizing only by hitting
+  the cap) WITHOUT the premature-submit risk of a turn-count heuristic — the small planner never sees the
+  live step number, and a genuine multi-server task keeps discovering because the gate stays unsatisfied.
+  The budget HARD RULE is re-anchored to a COMPLETE answer (submitting before querying the servers the task
+  needs is the second-worst outcome). Prompt-only; SUBMIT stays judgement-only, four meta-tools untouched,
+  no reward.
+- **Default `max_iterations` raised 30 → 45** (`config.py`, `TS_MAX_ITERATIONS`). ATLAS is progressive
+  discovery over a LARGE toolspace: `list_servers` + several `load_server`/`describe_tools`/`call_tool`
+  turns interleaved with reasoning routinely exceed 30 once the default toolspace holds many servers, so a
+  single-tool task could finalize only by hitting the cap. Still a HARD per-run budget — never multiplied
+  by an outer loop (`max_retries=1`); it rides in `run_start` meta so `render`/`export` re-derive the same
+  `hit_iteration_cap`.
 - **`load_server` surfaces a connect failure as fixable TEXT, and connect-lazy is per-transport.**
   `load_server` now guards the catalog connect: a wedged/refused server returns a short `connect_error`
   message (recorded `ok=False, reason="connect_error"`) instead of raising into the RLM loop — toolscout's

@@ -271,9 +271,11 @@
       if (!r.ok) throw new Error(`no run ${id}`);
       resp = await r.json();
     } catch (e) { feedError(e); renderResult({ status: "failed", refusal: { reason: "not_found" }, error: String(e.message) }); return; }
-    // replay the trace into the feed (paced), then render the stored response
+    // dump the trace into the feed at once (no SSE pacing), then render the stored response. The
+    // step-through "process build-up" lives in the Trajectory drawer's speed-aware replay, so pacing
+    // the main feed too was redundant. (The backend `delay` knob stays, just unused by the UI.)
     try {
-      await streamSSE("GET", `/v1/runs/${encodeURIComponent(id)}/events?delay=0.15`, null, (event, data) => addFeedRow(event, data));
+      await streamSSE("GET", `/v1/runs/${encodeURIComponent(id)}/events`, null, (event, data) => addFeedRow(event, data));
     } catch (_) {}
     renderResult(resp);
   }

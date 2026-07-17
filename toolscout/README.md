@@ -131,14 +131,59 @@ fine-tuning project**. Every exporter here carries `reward=None`.
 ## The toolspace (external MCP servers)
 
 Point `TS_TOOLSPACE` at a JSON list of MCP server specs (a **trust declaration** — server-authored
-names/descriptions/schemas enter the planner's context as untrusted input, and are length-capped):
+names/descriptions/schemas AND tool outputs enter the planner's context as untrusted input, and are
+length-capped). A stdio spec is `{"name","description","command","args","env"}`; an HTTP spec is
+`{"name","description","url"}`.
 
-```json
-[
-  {"name": "fs", "description": "read-only filesystem", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data"]},
-  {"name": "search", "description": "web search", "url": "https://mcp.example.com/mcp"}
-]
+### The curated default — `toolspace.example.json`
+
+A ready-to-run, security-domain starter ships in the repo. Copy it and point `TS_TOOLSPACE` at your copy
+(`toolspace.json` is git-ignored, like `.env`):
+
+```bash
+cp toolspace.example.json toolspace.json     # then set TS_TOOLSPACE=./toolspace.json in your env
 ```
+
+It declares two **hosted, no-key, first-party** streamable-HTTP servers — enough for the small planner to
+practise ISL→ITL→PTC discovery (pick a server, load it, describe a few tools, call/compute), with zero
+signup:
+
+| server | operator | no-key surface | note |
+|---|---|---|---|
+| `securitycontext` | **ProjectDiscovery** (Nuclei / subfinder / httpx) | repo security context + CVE / variant-lead search over public GitHub repos | **results are public**; reads are unlimited + cached, `create_security_context` is 10/day per IP |
+| `hibp` | **Have I Been Pwned** (official, Troy Hunt) | breach catalog + k-anonymity password check | the account / domain / stealer-log tools need **your own** HIBP OAuth/key and fail closed without it |
+
+**Trust disclosure (this is a real network egress).** Using this toolspace sends **public GitHub repo
+names** to `securitycontext.dev` (ProjectDiscovery) and **breach/data-class lookups** to
+`haveibeenpwned.com`. No source code or secrets leave the host, and HIBP's k-anonymity sends only a 5-char
+password-hash prefix — but Security Context **publishes its results** (anyone with the repo name can view
+them) and logs caller IPs, so the toolspace is **opt-in by design**: `TS_TOOLSPACE` stays commented in
+`.env.example`, and you set it deliberately. Both were security-vetted as ship-safe, accountable
+first-party operators; keep the sandbox + `max_desc_chars` cap on — they fence the untrusted tool output.
+
+### The opt-in catalog (bring your own key / host trust)
+
+ATLAS shines over a LARGE toolspace, so grow the default with more servers — ordered by **trust**, not
+popularity:
+
+**Hosted, vendor-official (add your key/OAuth — no third-party code runs on your host).** The safest way
+to expand:
+
+| server | url | auth |
+|---|---|---|
+| GitHub (code-scanning / Dependabot / secret-scanning / advisories) | `https://api.githubcopilot.com/mcp/` | OAuth / PAT |
+| Socket (supply-chain `depscore`) | `https://mcp.socket.dev/` | OAuth |
+| Semgrep (SAST) | `https://mcp.semgrep.ai/mcp` | token |
+| Google GTI / VirusTotal · GreyNoise · Shodan · Snyk · Censys | vendor endpoints | vendor key |
+
+**Community stdio (`npx` / `uvx` / `pip`) — HOST-RCE, opt-in, eyes-open.** A stdio server runs third-party
+code **on your host, outside toolscout's sandbox** (toolscout is an MCP *client*; it spawns the process
+pre-run). Add only servers you have reason to trust, and prefer pinned versions over `npx -y …@latest`.
+Useful key-free CVE/vuln servers in this class — `@cyanheads/nist-nvd-mcp-server`,
+`@cyreslab/circl-cve-search-mcp-server`, StacklokLabs `osv-mcp`, `mukul975/cve-mcp-server` (NVD / OSV /
+EPSS / CISA KEV / MITRE ATT&CK). Do **not** ship these default-on — the supply-chain surface is exactly why
+the shipped default is hosted-first-party only. (A bundle such as `darknet-mcp-server` — one unaudited solo
+`npx` package fanning in 66 tools incl. live Tor egress — is a clear AVOID-as-default.)
 
 By default servers connect **eagerly, host-side, before the run** (`TS_CONNECT=eager`, the proven path).
 The opt-in `TS_CONNECT=lazy` is **per-transport** (a property of the underlying rlm-kit MCP client): a URL

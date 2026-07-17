@@ -44,7 +44,7 @@ def test_config_exposes_toolspace_and_flags(monkeypatch):
     monkeypatch.delenv("TS_ENABLE_JUDGE", raising=False)
     monkeypatch.setenv("TS_MAX_ITERATIONS", "not-a-number")   # must not 500 — falls back to the default
     cfg = client.get("/v1/config").json()
-    assert cfg["toolspace"] == "demo" and cfg["enable_judge"] is False and cfg["max_iterations"] == 30
+    assert cfg["toolspace"] == "demo" and cfg["enable_judge"] is False and cfg["max_iterations"] == 45
 
 
 # ---- /v1/runs + /v1/runs/{id} (augmented with the re-derived toolspace ops) ----
@@ -146,7 +146,8 @@ def test_replay_delay_is_bounded(tmp_path, monkeypatch):
     monkeypatch.setattr(appmod, "ARTIFACTS", tmp_path)
     assert client.get("/v1/runs/r/events?delay=1e9").status_code == 422   # over le=10 → rejected, not parked
     assert client.get("/v1/runs/r/events?delay=-1").status_code == 422    # under ge=0 → rejected
-    # an in-range delay (the value the replay UI passes) is accepted and still terminates cleanly
+    # an in-range delay is still accepted and terminates cleanly (the backend knob stays even though the
+    # UI no longer paces the main feed — the Trajectory drawer owns step-through replay)
     _write_trace(tmp_path, [
         {"type": "run_start", "step_id": 0, "payload": {"meta": {"planner": "P"}}},
         {"type": "result", "step_id": 1, "payload": {"output": {"answer": "ok"}}}])
