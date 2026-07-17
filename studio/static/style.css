@@ -258,8 +258,7 @@ button { font-family:var(--mono); cursor:pointer; }
 .fab-well .fw-head { font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--bad); font-weight:700; }
 .fab-well .fw-body { font-size:.74rem; color:var(--text-dim); margin-top:3px; word-break:break-word; }
 
-/* the task view */
-.task-src { font-size:.72rem; color:var(--text-faint); margin-bottom:8px; text-transform:uppercase; letter-spacing:.05em; }
+/* the "Original input" right-column module body */
 .task-well {
   background:var(--surface-3); border-radius:var(--radius); padding:12px 14px; font-family:var(--sans);
   color:var(--text); font-size:.9rem; line-height:1.6; white-space:pre-wrap; word-break:break-word;

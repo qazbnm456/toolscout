@@ -93,18 +93,15 @@
   function renderStage(r) {
     const st = RunCore.deriveState(r);
     const isRefusal = st.key === "iron";
-    const task = r.task || (r.outcome && r.outcome.task) || CURRENT_TASK;
-    // ONE page-height alloy card (frame = derived grounding, §2), three views behind the top-right
-    // switch, in read order: ANSWER → TOOLSPACE (the star: the ISL/ITL/PTC exploration + fabrication
-    // tells) → TASK (the task under solve).
+    // ONE page-height alloy card (frame = derived grounding, §2), two views behind the top-right switch,
+    // in read order: ANSWER → TOOLSPACE (the star: the ISL/ITL/PTC exploration + fabrication tells). The
+    // original input is a right-column module ("Original input"), always visible — not a view here.
     const views = [["answer", "Answer"], ["toolspace", "Toolspace"]];
-    if (task) views.push(["task", "Task"]);
     if (!views.some(([v]) => v === stageView)) stageView = "answer";
     const switchHtml = `<div class="stage-switch">` + views.map(([v, label]) =>
       `<button data-view="${v}" class="${stageView === v ? "on" : ""}">${label}</button>`).join("") + `</div>`;
     let body;
     if (stageView === "toolspace") body = toolspaceHtml(r);
-    else if (stageView === "task") body = taskView(r, task);
     else body = isRefusal ? refusalView(r) : answerView(r, st);
     stageEl.innerHTML = `<div class="card ${st.key} sweep"><div class="card-inner">` +
       `<div class="card-head"><span class="state-head ${st.key}">${esc(st.head)}</span>${switchHtml}</div>` +
@@ -137,10 +134,6 @@
     const counters = `<div class="ini-budget">servers loaded ${p.servers_loaded || 0} · tool calls ${p.tool_calls || 0} · turns ${p.turns || 0}</div>`;
     return `<div class="refusal"><div class="rf-reason">${esc(rf.reason || r.status || "no answer")}</div>` +
       `<p>${esc(r.error || rf.reason || "The run did not produce a usable answer.")}</p></div>${counters}`;
-  }
-
-  function taskView(r, task) {
-    return `<div class="task-src">the task under solve</div><div class="task-well">${esc(task || "(no task recorded)")}</div>`;
   }
 
   // ── the toolspace view (the star: ISL → ITL → PTC) ───────────────────────
@@ -180,6 +173,7 @@
 
   function renderModules(r) {
     const o = r.outcome || {}, p = r.process || {};
+    const task = r.task || o.task || CURRENT_TASK;
     const stats = [
       ["turns", p.turns != null ? p.turns : "—", ""],
       ["servers", p.servers_loaded != null ? p.servers_loaded : "—", ""],
@@ -206,6 +200,7 @@
     metaEl.innerHTML =
       module("Run telemetry", `<div class="headline">${p.turns != null ? esc(p.turns) : "—"} <span class="sl" style="font-size:.8rem">turns</span></div><div class="stat-grid">${stats}</div>` +
         (p.judge_ran ? `<span class="flag-chip">rubric judge ran</span>` : "")) +
+      module("Original input", `<div class="task-well">${esc(task || "(no task recorded)")}</div>`) +
       module("Rubric criteria facts", (crits || `<div class="ts-empty">no rubric recorded for this run.</div>`) +
         (judge ? `<div class="ind-group-label">judge observations (labels — not a score)</div>${judge}` : "")) +
       module("Fabrication tells", tellsHtml) +
