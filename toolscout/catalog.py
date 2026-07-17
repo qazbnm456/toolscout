@@ -176,7 +176,10 @@ def load_catalog(config) -> Catalog:
     if not path:
         return demo_catalog()
     if not os.path.exists(path):
-        raise FileNotFoundError(f"TS_TOOLSPACE points at {path!r}, which does not exist")
+        raise FileNotFoundError(
+            f"TS_TOOLSPACE points at {path!r} (resolved to {os.path.abspath(path)!r}), which does not "
+            "exist — a relative path is resolved against the current working directory"
+        )
     with open(path, encoding="utf-8") as fh:
         specs = json.load(fh)
     from .mcp_toolspace import McpCatalog  # lazy: pulls the mcp SDK only for a real toolspace

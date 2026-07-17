@@ -14,6 +14,19 @@ from toolscout_studio import app as appmod  # noqa: E402
 client = TestClient(appmod.app)
 
 
+# ---- TS_TOOLSPACE is anchored at the workspace root, not the CWD (live worker delegates to cli.run) ----
+
+def test_abs_toolspace_anchors_relative_at_root(tmp_path):
+    from pathlib import Path
+    # a relative spec (the shipped ./toolspace.json) resolves under `root`, regardless of CWD
+    rel = appmod._abs_toolspace("./toolspace.json", tmp_path)
+    assert rel == str((tmp_path / "toolspace.json").resolve()) and Path(rel).is_absolute()
+    assert appmod._abs_toolspace("toolspace.json", tmp_path) == str((tmp_path / "toolspace.json").resolve())
+    # an absolute spec passes through (resolved), never re-anchored under `root`
+    abs_in = str(tmp_path / "x.json")
+    assert appmod._abs_toolspace(abs_in, Path("/other/root")) == str(Path(abs_in).resolve())
+
+
 # ---- /v1/config: never raises (unlike ToolscoutConfig.from_env), reads env directly ----
 
 def test_config_exposes_model_roles_from_env(monkeypatch):

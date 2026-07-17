@@ -41,6 +41,22 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = Path(
     os.environ.get("TS_ARTIFACTS_DIR") or REPO_ROOT / "output"
 ).expanduser().resolve()
+
+
+def _abs_toolspace(raw: str, root: Path) -> str:
+    """A RELATIVE TS_TOOLSPACE (the shipped `./toolspace.json`) → absolute, anchored at `root`. Absolute
+    and `~` paths pass through (expanded)."""
+    p = Path(raw).expanduser()
+    return str((p if p.is_absolute() else root / p).resolve())
+
+
+# Give TS_TOOLSPACE the same CWD-independent treatment as ARTIFACTS. The live worker delegates to
+# toolscout's cli.run → config.from_env → load_catalog, which resolves a relative spec against the process
+# CWD — but a long-running server's CWD is wherever it was launched, not necessarily the workspace root.
+# Anchor a relative value at REPO_ROOT (rewriting os.environ, which from_env reads) so live solves find it.
+if os.environ.get("TS_TOOLSPACE"):
+    os.environ["TS_TOOLSPACE"] = _abs_toolspace(os.environ["TS_TOOLSPACE"], REPO_ROOT)
+
 STATIC = Path(__file__).resolve().parent.parent / "static"
 
 # Built-in example TASKS — one-click demos wired to the offline demo catalog (echo / math / memory / text
