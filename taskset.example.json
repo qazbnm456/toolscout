@@ -1,0 +1,17 @@
+[
+  {
+    "id": "adobe-breach-to-coldfusion-brief",
+    "task": "Using the HIBP and securitycontext MCP servers, build a short security briefing on Adobe. First, pull the Adobe breach record from HIBP (its breach date, how many accounts were affected, and which classes of data were exposed). Then use securitycontext to find known-exploited (KEV) vulnerabilities in Adobe ColdFusion, and pull the full details of the most severe one. Finish with a 2-3 sentence briefing that ties the Adobe breach to the ColdFusion known-exploited CVEs, citing the concrete values you retrieved.",
+    "reference": "Loads BOTH the hibp and securitycontext servers. From HIBP, calls hibp_get_breach for 'Adobe' and grounds the briefing in concrete fields (Title=Adobe, Domain=adobe.com, BreachDate=2013-10-04, PwnCount around 152,445,165, DataClasses including Passwords / Email addresses / Usernames / Password hints). From securitycontext, searches the live vulnerability DB for known-exploited Adobe ColdFusion CVEs (e.g. a Bleve query like 'affected_products.product:coldfusion && is_kev:true') and then calls get_vulnerability on one of the returned CVE ids for its severity/CVSS and description. The final briefing cites retrieved values and connects the breach to the ColdFusion KEV CVEs. Uses only no-key HIBP tools — no account/domain/stealer-log lookups (those require a key and fail closed)."
+  },
+  {
+    "id": "hibp-latest-breach",
+    "task": "What is the most recent breach recorded in Have I Been Pwned, and which classes of personal data did it expose?",
+    "reference": "Loads the hibp server and calls hibp_get_latest_breach (a no-key public tool). Reports the breach's Name/Title and BreachDate, and lists its DataClasses. Answer is grounded in the returned record; no keyed account/domain tools are used."
+  },
+  {
+    "id": "securitycontext-log4shell",
+    "task": "Look up the Log4Shell vulnerability (CVE-2021-44228) in securitycontext and report its severity, its affected products, and whether a public proof-of-concept is available.",
+    "reference": "Loads the securitycontext server and calls get_vulnerability with id 'CVE-2021-44228'. Reports the severity/CVSS, the affected product(s), and the PoC-availability flag from the returned record. Answer grounded in the retrieved vulnerability details."
+  }
+]

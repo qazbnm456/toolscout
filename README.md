@@ -2,6 +2,10 @@
 
 **Solve a task over a LARGE MCP toolspace with a small planner — a traced [ATLAS](https://arxiv.org/html/2603.06713v1)-style rollout harness built on [rlm-kit](https://github.com/qazbnm456/rlm-kit).**
 
+https://github.com/user-attachments/assets/afa8fb71-8c41-4b47-acb8-9c4165345411
+
+_The studio: hand it one task over a large MCP toolspace, watch the small planner discover servers and compute over tool results (ISL→ITL→PTC) live in the trace, then read the grounded, fabrication-checked outcome._
+
 A small language model cannot hold the schemas of hundreds of tools in its context. ATLAS (Adaptive Tool
 Loading and Scoped Context, Microsoft Research) shows how to make it work anyway: let the model
 **discover** the toolspace progressively and **compute over tool results as code**. That method is general

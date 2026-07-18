@@ -12,6 +12,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Added
+
+- **`taskset.example.json`** — a paired starter task set for `toolspace.example.json`, in the ATLAS
+  `{id, task, reference}` shape (fuzzy `task` for the planner, judge-only `reference`). Three no-key tasks
+  over the curated `securitycontext` + `hibp` servers: one per server, plus `adobe-breach-to-coldfusion-brief`,
+  a cross-server briefing (HIBP Adobe breach record → ProjectDiscovery ColdFusion KEV CVEs) that exercises
+  ISL→ITL→PTC across both. Consumable by `toolscout solve`, `rubric-batch`, and `toolscout-eval`.
+
 ### Fixed
 
 - **`cli.run` surfaces the chained cause on a failed run** (`cli.py`): a wrapped exception (e.g. an

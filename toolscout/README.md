@@ -161,6 +161,13 @@ them) and logs caller IPs, so the toolspace is **opt-in by design**: `TS_TOOLSPA
 `.env.example`, and you set it deliberately. Both were security-vetted as ship-safe, accountable
 first-party operators; keep the sandbox + `max_desc_chars` cap on — they fence the untrusted tool output.
 
+A paired **task set** ships alongside it — `taskset.example.json`, in the ATLAS `{id, task, reference}`
+shape (a fuzzy `task` the planner sees, a judge-only `reference` it never does). It holds three no-key
+tasks over these two servers — one per server, plus `adobe-breach-to-coldfusion-brief`, which spans **both**
+(pull the HIBP Adobe breach record → find ProjectDiscovery's known-exploited ColdFusion CVEs → tie them
+together). Copy one `task` string into `toolscout solve`, or feed the whole file to `toolscout rubric-batch`
+/ `toolscout-eval score` (the `run_id == task id` convention pairs each run to its task).
+
 ### The opt-in catalog (bring your own key / host trust)
 
 ATLAS shines over a LARGE toolspace, so grow the default with more servers — ordered by **trust**, not
