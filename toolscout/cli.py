@@ -1,6 +1,6 @@
 """THE entry point: a task string in → a structured, grounded outcome over the toolspace out.
 
-    toolscout solve "what is 6 * 7, then uppercase the word 'ok'?"   # run (needs TS_* creds + Deno)
+    toolscout solve "What is the most recent breach in Have I Been Pwned?"  # run (needs TS_* creds + Deno)
     toolscout render traces/demo.jsonl demo                          # re-render a response from a trace
     toolscout export "traces/*.jsonl" ds.json                        # reward-free dataset export (offline)
     toolscout rubric "summarize the repo's open issues"              # host-side rubric decomposition

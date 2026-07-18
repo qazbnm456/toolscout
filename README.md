@@ -37,17 +37,39 @@ Copy `.env.example` to `.env`, set the model roles, then:
 
 ```bash
 # A live run needs model creds (TS_* env) AND a Deno sandbox: brew install deno
-toolscout solve "what is 6 * 7, then uppercase the word 'ok'?"
+export TS_TOOLSPACE=./toolspace.example.json   # the curated no-key default (2 hosted, first-party servers)
+toolscout solve "What is the most recent breach recorded in Have I Been Pwned?"
+```
 
-# Offline — no model, no Deno, no network:
+```
+ANSWER:
+  The most recent breach recorded in Have I Been Pwned is Fluke.
+
+TOOLSPACE USE: servers_loaded=1 tools_used=1 described=1 calls(ok/fail)=1/0 turns=4
+  servers: ['hibp']
+  tools:   ['hibp:hibp_get_latest_breach']
+```
+
+That is the whole loop in one command: the planner picked the server out of the index (**ISL**), pulled
+just that one tool's schema (**ITL**), called it and computed on the result in its REPL (**PTC**) — and the
+answer is one no model can produce from training data. `TOOLSPACE USE` is re-sourced from the trace, not
+self-reported.
+
+```bash
+# No external server at all — the built-in demo catalog (echo/math/memory/text; offline, deterministic):
+toolscout solve "Use the memory server to store 'blue' under the key 'color', then read it back."
+
+# Fully offline — no model, no Deno, no network:
 toolscout render output/traces/task.jsonl task     # re-render a response from a trace
 toolscout export "output/traces/*.jsonl" ds.json   # reward-free SFT/RL dataset
 toolscout rubric "summarize the repo's open issues" # decompose a task into a rubric
 ```
 
-With no `TS_TOOLSPACE` set, toolscout runs against a small **built-in demo catalog** (`echo`/`math`/
-`memory`/`text` — offline, deterministic), so `solve` works end-to-end without any external MCP server once
-you have model creds + Deno. Point `TS_TOOLSPACE` at your own MCP servers for the live path.
+With no `TS_TOOLSPACE` set, toolscout falls back to that built-in demo catalog, so `solve` works
+end-to-end without any external MCP server once you have model creds + Deno. Point `TS_TOOLSPACE` at your
+own MCP servers for the real path. (Pick a task the planner genuinely *needs* a tool for — asked to compute
+`6 * 7`, a competent planner just does it in its REPL and touches no server at all, which is correct PTC
+behaviour but demonstrates nothing.)
 
 ## What's in the box
 

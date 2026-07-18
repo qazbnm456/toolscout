@@ -62,15 +62,20 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
 # Built-in example TASKS — one-click demos wired to the offline demo catalog (echo / math / memory / text
 # servers), so a live solve against the default toolspace actually resolves. A REPO asset (ships with the
 # studio), vendor-neutral + generic.
+# Each task must genuinely NEED a tool: asked to compute `6 * 7`, a competent planner just evaluates it in
+# its REPL and touches no server at all — correct PTC behaviour, but it demos nothing (servers_loaded=0).
+# So these name the server / rely on state that only lives behind a tool.
 EXAMPLES = [
-    {"name": "arithmetic + text",
-     "task": "What is 6 * 7, and then upper-case the word 'ok'?",
-     "note": "exercises the math + text servers across the ISL → ITL → PTC loop."},
     {"name": "stateful memory",
-     "task": "Store the number 42 under the key 'answer', then read it back and add 8 to it.",
-     "note": "exercises the memory + math servers — PTC state persists across calls in the REPL."},
+     "task": "Use the memory server to store 'blue' under the key 'color', then read it back.",
+     "note": "exercises the memory server across the ISL → ITL → PTC loop; its state lives only behind the tool."},
+    {"name": "memory + text",
+     "task": "Use the text server to upper-case 'ok', then store that result in the memory server under "
+             "the key 'greeting' and read it back.",
+     "note": "spans two servers — PTC state persists across calls in the REPL."},
     {"name": "echo + wordcount",
-     "task": "Echo the text 'hello there world' unchanged, then count how many words it has.",
+     "task": "Use the echo server to echo 'hello there world' unchanged, then use the text server to "
+             "count how many words it has.",
      "note": "exercises the echo + text servers."},
 ]
 
