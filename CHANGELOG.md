@@ -12,6 +12,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Fixed
+
+- **`cli.run` surfaces the chained cause on a failed run** (`cli.py`): a wrapped exception (e.g. an
+  `RLMTaskError` that wraps the real `AdapterParseError`/endpoint error via `raise … from`) now appends
+  `(caused by <Type>: <msg>)` to the response `error` string, so `output/responses/<run>.json` is
+  self-diagnosing instead of showing only the generic wrapper text.
+
 ## [0.1.0] - 2026-07-19
 
 The initial public release: a task string in → a structured, grounded outcome over a large MCP toolspace

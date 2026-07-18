@@ -138,7 +138,12 @@ def run(
                                catalog=catalog, rubric=rubric, extra_tools=extra_tools))
     except Exception as exc:  # noqa: BLE001 — a failed run is still self-contained + navigable
         events = load_events(trace_path, run_id) if os.path.exists(trace_path) else []
-        resp = build_failed_response(run_id, events, f"{type(exc).__name__}: {exc}", task=task)
+        # Surface the chained cause: RLMTaskError (and friends) wrap the REAL error via `raise … from`,
+        # so without __cause__ the response only ever shows the generic wrapper text — undiagnosable.
+        detail = f"{type(exc).__name__}: {exc}"
+        if exc.__cause__ is not None:
+            detail += f" (caused by {type(exc.__cause__).__name__}: {exc.__cause__})"
+        resp = build_failed_response(run_id, events, detail, task=task)
         response_path = _write((os.path.join(outdir, "responses"), f"{run_id}.json"),
                                resp.model_dump_json(indent=2) + "\n")
         return RunArtifacts(None, resp, events, run_id, trace_path, response_path, status="failed")
