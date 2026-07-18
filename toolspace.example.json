@@ -1,7 +1,7 @@
 [
   {
     "name": "securitycontext",
-    "description": "Security Context (ProjectDiscovery): mines a PUBLIC GitHub repo's fix-commit history + disclosed CVEs into a hunting brief, recurring weak spots, and ranked variant leads. No key, public repos only; results are public and served best-effort. Read tools: get_security_context, get_vulnerability_leads, get_vulnerability, search_vulnerabilities. Prefer the reads; create_security_context triggers a build (10/day per IP).",
+    "description": "Security Context (ProjectDiscovery): mines a PUBLIC GitHub repo's fix-commit history + disclosed CVEs into a hunting brief, recurring weak spots, and ranked variant leads — and also searches ProjectDiscovery's live vulnerability DB (CVEs/KEV/Nuclei templates). No key, public repos only; results are public, served best-effort. FOUR read tools (prefer these; unmetered): get_security_context + get_vulnerability_leads take a repo (owner/name or github URL); search_vulnerabilities takes a Bleve-syntax query (e.g. 'severity:critical && is_kev:true', 'affected_products.product:tomcat', 'is_poc:true'); get_vulnerability takes an id (e.g. CVE-2021-44228). ONE build tool, create_security_context — only when no context exists yet; capped 10/day per IP.",
     "url": "https://securitycontext.dev/mcp"
   },
   {
