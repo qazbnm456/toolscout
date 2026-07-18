@@ -1,7 +1,7 @@
 [project]
 name = "toolscout"
 version = "0.1.0"
-description = "Solve tasks over a large MCP toolspace by progressively loading servers + tool schemas and executing them in a persistent REPL — an ATLAS-style rollout harness on rlm-kit (a downstream consumer)."
+description = "An ATLAS-style rollout harness on rlm-kit: a small planner progressively discovers a large MCP toolspace and computes over tool results as code, emitting reward-free trajectories + per-criterion facts for a downstream trainer."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
