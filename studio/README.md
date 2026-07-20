@@ -141,7 +141,7 @@ The studio reads `os.environ` directly and does **not** auto-load `.env`, so sou
 ```bash
 set -a && source .env && set +a               # TS_ROOT_LM / TS_SUB_LM / TS_BASE_URL … (use `source`, not `.`)
 uv run --package toolscout-studio --extra live \
-  uvicorn toolscout_studio.app:app --port 8791
+  uvicorn toolscout_studio.app:app --port 8731 --timeout-graceful-shutdown 12
 ```
 
 (Artifacts default to `<repo-root>/output`, where the CLI writes them, so the studio's own live runs land
