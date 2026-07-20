@@ -16,7 +16,7 @@ import glob
 import json
 import sys
 
-from rlm_kit.dataset import export_actions, export_sft_turns
+from rlm_kit.dataset import export_actions, export_sft_turns, run_label_bundle
 from rlm_kit.trace import group_by_run, load_events
 
 # The four ISL/ITL/PTC meta-tools are the PLANNER's toolspace ops; rubric_judge is the opt-in judge tool.
@@ -118,9 +118,11 @@ def export_dataset(runs: dict[str, list[dict]]) -> dict:
         "toolspace_ops": [a for a in tool_acts if a.get("tool") in META_TOOLS],
         "judge": [a for a in tool_acts if a.get("tool") == JUDGE_TOOL],
         "sft_turns": export_sft_turns(runs),
-        "labels": {rid: run_labels(ev) for rid, ev in runs.items()},
-        "metrics": {rid: run_metrics(ev) for rid, ev in runs.items()},
-        "rubric_signal": {rid: rubric_signal(ev) for rid, ev in runs.items()},
+        # The three per-run LABEL surfaces ride via rlm-kit's shared run_label_bundle (the canonical
+        # {surface: {run_id: fn(events)}} seam) — one bundle shape across consumers; `reward` is a
+        # refused surface name (it raises). Output is byte-identical to the old comprehensions
+        # (rubric_signal here also nests the opt-in judge's per-criterion observations).
+        **run_label_bundle(runs, labels=run_labels, metrics=run_metrics, rubric_signal=rubric_signal),
     }
 
 
