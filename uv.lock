@@ -2510,6 +2510,9 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
 ]
+subscription-sdk = [
+    { name = "claude-agent-sdk" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2528,6 +2531,7 @@ dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
 ]
+subscription-sdk = [{ name = "claude-agent-sdk", specifier = ">=0.1.60" }]
 
 [[package]]
 name = "toolscout-eval"
@@ -2570,6 +2574,9 @@ dev = [
 live = [
     { name = "toolscout" },
 ]
+subscription = [
+    { name = "toolscout", extra = ["subscription"] },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2577,9 +2584,10 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "toolscout", marker = "extra == 'live'", editable = "." },
+    { name = "toolscout", extras = ["subscription"], marker = "extra == 'subscription'", editable = "." },
     { name = "uvicorn", specifier = ">=0.29" },
 ]
-provides-extras = ["live", "dev"]
+provides-extras = ["live", "subscription", "dev"]
 
 [[package]]
 name = "tqdm"
