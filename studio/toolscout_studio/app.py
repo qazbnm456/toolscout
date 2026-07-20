@@ -132,6 +132,19 @@ def _slug_id(raw: str) -> str:
     return token or "unknown"
 
 
+_SUBSCRIPTION_PREFIX = "claude-agent-sdk/"  # mirrors toolscout.config.SUBSCRIPTION_PREFIX
+
+
+def _role_or_none(explicit: "str | None", fallback: "str | None") -> "str | None":
+    """`explicit or fallback`, EXCEPT a role that can't run on a subscription (the judge — a separate
+    make_model_tool endpoint, not the Agent SDK) must not surface a subscription-sentinel fallback:
+    `from_env` REJECTS a `claude-agent-sdk/…` judge, so showing the specialist there would display a
+    config a run couldn't use. Fall back only when the fallback is a real (non-subscription) model."""
+    if explicit:
+        return explicit
+    return None if (fallback or "").startswith(_SUBSCRIPTION_PREFIX) else fallback
+
+
 def _int_env(name: str, default: int) -> int:
     try:
         return int(os.environ.get(name, str(default)))
@@ -169,13 +182,17 @@ def config() -> JSONResponse:
     """The three model ROLES → their configured model names (from env), so the UI can show them on page
     load. Read env DIRECTLY (never `ToolscoutConfig.from_env`, which RAISES without TS_ROOT_LM/TS_SUB_LM)
     so a replay-only deploy still answers. `judge` mirrors toolscout's `TS_JUDGE_LM or specialist`
-    fallback. `toolspace`/`max_iterations`/`enable_judge` let the UI frame the run."""
+    fallback — but NEVER surfaces a subscription-sentinel specialist as the judge (from_env rejects a
+    subscription judge; see `_role_or_none`). `toolspace`/`max_iterations`/`enable_judge` let the UI
+    frame the run."""
     specialist = os.environ.get("TS_SUB_LM")
     return JSONResponse({
         "models": {
             "planner": os.environ.get("TS_ROOT_LM"),
             "specialist": specialist,
-            "judge": os.environ.get("TS_JUDGE_LM") or specialist,
+            # judge = TS_JUDGE_LM or specialist, but NEVER surface a subscription specialist as the judge
+            # (from_env rejects a subscription judge — that would show a config a run couldn't use).
+            "judge": _role_or_none(os.environ.get("TS_JUDGE_LM"), specialist),
         },
         "toolspace": os.environ.get("TS_TOOLSPACE") or "demo",
         # Fallback MIRRORS toolscout config.py's `max_iterations` default (read env directly to stay
