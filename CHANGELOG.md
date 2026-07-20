@@ -12,6 +12,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Fixed
+
+- **The studio launches on a subscription with the SAME command as every rlm-kit sibling.** The studio
+  member (`toolscout-studio`) was missing a forwarding `subscription` extra, so
+  `uv run --package toolscout-studio --extra live --extra subscription uvicorn …` was rejected — a
+  studio-scoped `uv` command resolves extras against the MEMBER, not the root, and the Claude Agent SDK
+  extra lived only on the root. Added `subscription = ["toolscout[subscription]"]` to
+  `studio/pyproject.toml` (mirroring the sibling harnesses) + a "Subscription mode" section to the studio
+  README. Closes a latent cross-downstream drift (this was the same gap fixed in the siblings); the
+  paired-extras convention is now documented in rlm-kit's "Building a consumer" guide.
+
 ### Added
 
 - **`taskset.example.json`** — a paired starter task set for `toolspace.example.json`, in the ATLAS

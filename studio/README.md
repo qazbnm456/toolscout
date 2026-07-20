@@ -114,6 +114,18 @@ uv run --package toolscout-studio --extra dev python -m pytest studio/tests   # 
 for t in studio/tests/*.test.js; do node "$t"; done                          # the node core-tests (zero-dep, pure JS)
 ```
 
+**Subscription mode** — if a role runs on a Claude Pro/Max subscription (`.env` has
+`TS_ROOT_LM`/`TS_SUB_LM=claude-agent-sdk/<id>`), the live worker also needs the Claude Agent SDK, so add
+`--extra subscription` **to every `uv sync`/`uv run`** (it forwards `toolscout`'s own `subscription`
+extra); it **must** ride with `--extra live` in the **same** command, or a later bare sync prunes the SDK
+back out:
+```bash
+uv run --package toolscout-studio --extra live --extra subscription \
+  uvicorn toolscout_studio.app:app --port 8731 --timeout-graceful-shutdown 12
+```
+Without it a subscription run raises `ImportError: ClaudeAgentLM requires the optional dependency … No
+module named 'claude_agent_sdk'`.
+
 **Live** (`POST /v1/solve` drives a REAL solve) needs `toolscout` importable AND its env (`TS_ROOT_LM`
 planner / `TS_SUB_LM` specialist / `TS_BASE_URL` … see the root `.env.example`), a Deno sandbox
 (`brew install deno`) for the pyodide REPL, and — for a non-demo toolspace — `TS_TOOLSPACE` pointing at
