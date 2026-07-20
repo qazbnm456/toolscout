@@ -52,6 +52,20 @@ def test_config_judge_falls_back_to_specialist(monkeypatch):
     assert client.get("/v1/config").json()["models"]["judge"] == "specialist-m"
 
 
+def test_config_judge_never_surfaces_a_subscription_specialist(monkeypatch):
+    # the judge is a make_model_tool endpoint and from_env REJECTS a subscription judge, so the panel
+    # must NOT show a subscription-sentinel specialist as the judge — that would be a config a run
+    # couldn't use. (Regression: judge = TS_JUDGE_LM or specialist surfaced the subscription lifeline.)
+    monkeypatch.setenv("TS_SUB_LM", "claude-agent-sdk/claude-fable-5")
+    monkeypatch.delenv("TS_JUDGE_LM", raising=False)
+    cfg = client.get("/v1/config").json()["models"]
+    assert cfg["specialist"] == "claude-agent-sdk/claude-fable-5"   # the specialist role CAN be subscription
+    assert cfg["judge"] is None                                    # but the judge fallback is suppressed
+    # an EXPLICIT non-subscription judge still shows through
+    monkeypatch.setenv("TS_JUDGE_LM", "openai/gpt-4o")
+    assert client.get("/v1/config").json()["models"]["judge"] == "openai/gpt-4o"
+
+
 def test_config_exposes_toolspace_and_flags(monkeypatch):
     monkeypatch.delenv("TS_TOOLSPACE", raising=False)
     monkeypatch.delenv("TS_ENABLE_JUDGE", raising=False)
