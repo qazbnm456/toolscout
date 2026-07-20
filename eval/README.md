@@ -17,16 +17,18 @@ the fixed external evaluation judge.
 # The `--package toolscout-eval` is required from the repo root — a plain `uv run` won't install the
 # workspace member (it's deliberately not a dependency of the toolscout wheel).
 uv run --package toolscout-eval python -m toolscout_eval score "output/traces/*.jsonl" demo
-uv run --package toolscout-eval python -m toolscout_eval score "output/traces/*.jsonl" path/to/taskset.json --out output/eval
+uv run --package toolscout-eval python -m toolscout_eval score "output/traces/*.jsonl" taskset.example.json --out output/eval
 
 # Run-then-score: drive `toolscout.run` per task (run_id = task id), then score the fresh traces.
 # Needs the full solve stack (TS_* creds + Deno) on top of the judge env.
-uv run --package toolscout-eval python -m toolscout_eval run demo --out output/eval
+uv run --package toolscout-eval python -m toolscout_eval run taskset.example.json --out output/eval
 ```
 
 Runs pair to tasks by the `run_id == task id` convention. The taskset argument is a JSON list of
 `{id, task, reference}` objects, or the literal `demo` for the built-in offline set over toolscout's
-demo catalog (echo/math/memory/text). `reference` is the concrete expected-behavior description the
+demo catalog (echo/math/memory/text). The repo-root **`taskset.example.json`** is a committed starter of
+REAL tasks (already the `{id, task, reference}` shape the eval consumes) — the same paired set `toolscout
+solve` uses; point the eval straight at it. `reference` is the concrete expected-behavior description the
 **judge alone** sees — the planner only ever gets `task` (ATLAS's fuzzy-vs-concrete split).
 
 Everything is written under `--out` (default `./output/eval/`): `report.json` plus, for `run`, the

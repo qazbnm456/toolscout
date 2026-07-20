@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -13,6 +14,16 @@ def test_demo_taskset_covers_the_demo_servers():
     tasks = demo_taskset()
     ids = [t.id for t in tasks]
     assert len(ids) == len(set(ids)) and len(tasks) >= 4
+
+
+def test_repo_root_taskset_example_is_eval_loadable():
+    # the repo-root taskset.example.json (the `toolscout solve` starter set) is the same {id, task,
+    # reference} shape the eval consumes — the eval README points operators at it, so keep it loadable.
+    fixture = Path(__file__).resolve().parents[2] / "taskset.example.json"
+    tasks = load_taskset(str(fixture))
+    assert tasks and len({t.id for t in tasks}) == len(tasks)   # unique ids
+    for t in tasks:
+        assert t.id and t.task                                  # a planner-visible task per entry
     assert all(t.task and t.reference for t in tasks)     # every task carries a judge-only reference
     references = " ".join(t.reference for t in tasks)
     for server in ("echo", "math", "memory", "text"):     # the demo_catalog servers
