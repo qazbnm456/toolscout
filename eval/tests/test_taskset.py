@@ -14,6 +14,10 @@ def test_demo_taskset_covers_the_demo_servers():
     tasks = demo_taskset()
     ids = [t.id for t in tasks]
     assert len(ids) == len(set(ids)) and len(tasks) >= 4
+    assert all(t.task and t.reference for t in tasks)     # every task carries a judge-only reference
+    references = " ".join(t.reference for t in tasks)
+    for server in ("echo", "math", "memory", "text"):     # the demo_catalog servers
+        assert server in references
 
 
 def test_repo_root_taskset_example_is_eval_loadable():
@@ -24,10 +28,6 @@ def test_repo_root_taskset_example_is_eval_loadable():
     assert tasks and len({t.id for t in tasks}) == len(tasks)   # unique ids
     for t in tasks:
         assert t.id and t.task                                  # a planner-visible task per entry
-    assert all(t.task and t.reference for t in tasks)     # every task carries a judge-only reference
-    references = " ".join(t.reference for t in tasks)
-    for server in ("echo", "math", "memory", "text"):     # the demo_catalog servers
-        assert server in references
 
 
 def test_load_taskset_round_trip(tmp_path):
