@@ -64,6 +64,16 @@ def test_assemble_resolves_judge_observations(tmp_path):
     assert a.metrics["judge_ran"] is True
 
 
+def test_assemble_carries_the_decline_flag(tmp_path):
+    """The planner's principled DECLINE flag round-trips verbatim through the trace (a re-render sees the
+    SAME `refused` reading the live run did), while a normal outcome defaults it False."""
+    declined = run_recorded(tmp_path, _calls(), outcome={
+        "answer": "no server here exposes weather data", "cannot_complete": True})
+    assert outcome_from_events(declined).cannot_complete is True
+    normal = run_recorded(tmp_path, _calls(), outcome={"answer": "13"})
+    assert outcome_from_events(normal).cannot_complete is False
+
+
 def test_outcome_from_events_none_without_result(tmp_path):
     events = run_recorded(tmp_path, _calls(), outcome=None)  # never finalized
     assert outcome_from_events(events) is None

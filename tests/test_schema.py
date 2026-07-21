@@ -15,9 +15,10 @@ from toolscout.schema import (
 
 def test_task_outcome_is_citation_only():
     """Structurally NO field for raw tool outputs, a per-criterion score, or a reward — the policy cannot
-    self-report evidence."""
+    self-report evidence. `cannot_complete` is a JUDGEMENT (a principled decline), not evidence/score."""
     fields = set(TaskOutcome.model_fields)
-    assert fields == {"answer", "summary", "servers_loaded", "tools_used", "judge_call_id"}
+    assert fields == {"answer", "summary", "servers_loaded", "tools_used", "judge_call_id",
+                      "cannot_complete"}
     assert "score" not in fields and "reward" not in fields and "tool_outputs" not in fields
     # No policy-facing rubric citation: the agent never sees the rubric at inference.
     assert "cited_criteria" not in fields
@@ -26,7 +27,12 @@ def test_task_outcome_is_citation_only():
 def test_task_outcome_defaults():
     o = TaskOutcome(answer="42")
     assert o.summary == "" and o.servers_loaded == [] and o.tools_used == []
-    assert o.judge_call_id is None
+    assert o.judge_call_id is None and o.cannot_complete is False
+
+
+def test_task_outcome_can_decline():
+    o = TaskOutcome(answer="no server here exposes weather data", cannot_complete=True)
+    assert o.cannot_complete is True
 
 
 def test_criterion_and_rubric():
@@ -44,11 +50,12 @@ def test_criterion_fact_is_facts_not_score():
 
 def test_assembled_outcome_shape():
     a = AssembledOutcome(task="t", answer="a")
-    for name in ("criteria_facts", "judge_observations", "unbacked_servers", "unbacked_tools", "metrics"):
+    for name in ("criteria_facts", "judge_observations", "unbacked_servers", "unbacked_tools", "metrics",
+                 "cannot_complete"):
         assert name in AssembledOutcome.model_fields
     assert "cited_criteria" not in AssembledOutcome.model_fields
     assert "cited_unknown" not in AssembledOutcome.model_fields
-    assert a.metrics == {} and a.unbacked_servers == []
+    assert a.metrics == {} and a.unbacked_servers == [] and a.cannot_complete is False
 
 
 def test_task_response_envelope():

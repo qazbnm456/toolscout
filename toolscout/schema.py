@@ -47,6 +47,10 @@ class TaskOutcome(BaseModel):
     Deliberately NO `cited_criteria`: the rubric is a TRAINER/EVAL-side artifact the agent never sees at
     inference (as in ATLAS), so asking the policy to cite criterion names it cannot know is meaningless.
     The real per-criterion signal is the deterministic `criteria_facts`, re-sourced from the trace.
+
+    `cannot_complete` is the one JUDGEMENT (never evidence/score) that finalizes a PRINCIPLED DECLINE: when
+    the configured toolspace genuinely cannot serve the task, the planner submits it True (with the reason
+    in `answer`) and the run reads as a legitimate `refused` negative trajectory, not a crash `failed`.
     """
 
     answer: str = Field(..., description="the final answer to the task, grounded in loaded tool outputs")
@@ -59,6 +63,13 @@ class TaskOutcome(BaseModel):
     )
     judge_call_id: Optional[str] = Field(
         None, description="step_id of the rubric_judge tool_call, if the opt-in self-check ran"
+    )
+    cannot_complete: bool = Field(
+        False,
+        description="set True ONLY when the configured toolspace genuinely CANNOT serve the task (no "
+        "loaded server exposes a suitable tool) — a principled 'unsupported by this toolspace' DECLINE, "
+        "with the reason in `answer`. A legitimate negative outcome, NOT an escape hatch for a "
+        "solvable-but-hard task.",
     )
 
 
@@ -82,6 +93,9 @@ class AssembledOutcome(BaseModel):
     task: str
     answer: str
     summary: str = ""
+    # The planner's principled DECLINE flag (a FACT copied VERBATIM from the SUBMIT judgement, never a
+    # score): True ⇒ the toolspace could not serve the task, so the run finalizes as `refused`.
+    cannot_complete: bool = False
     servers_loaded: list[str] = Field(default_factory=list)
     tools_used: list[str] = Field(default_factory=list)
     # Deterministic per-criterion facts from `rubric.criteria_facts(events)`.
