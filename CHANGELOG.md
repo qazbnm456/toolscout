@@ -29,6 +29,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
   server change — `live._final_response` serves the durable response verbatim and the frontend's REFUSED
   card keys off `status`. A principled "unsupported by this toolspace" is a legitimate negative
   TRAJECTORY, not a scoring change.
+- **`taskset.example.json`** — a paired starter task set for `toolspace.example.json`, in the ATLAS
+  `{id, task, reference}` shape (fuzzy `task` for the planner, judge-only `reference`). Three no-key tasks
+  over the curated `securitycontext` + `hibp` servers: one per server, plus `adobe-breach-to-coldfusion-brief`,
+  a cross-server briefing (HIBP Adobe breach record → ProjectDiscovery ColdFusion KEV CVEs) that exercises
+  ISL→ITL→PTC across both. Consumable by `toolscout solve`, `rubric-batch`, and `toolscout-eval`.
 
 ### Fixed
 
@@ -40,17 +45,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
   `studio/pyproject.toml` (mirroring the sibling harnesses) + a "Subscription mode" section to the studio
   README. Closes a latent cross-downstream drift (this was the same gap fixed in the siblings); the
   paired-extras convention is now documented in rlm-kit's "Building a consumer" guide.
-
-### Added
-
-- **`taskset.example.json`** — a paired starter task set for `toolspace.example.json`, in the ATLAS
-  `{id, task, reference}` shape (fuzzy `task` for the planner, judge-only `reference`). Three no-key tasks
-  over the curated `securitycontext` + `hibp` servers: one per server, plus `adobe-breach-to-coldfusion-brief`,
-  a cross-server briefing (HIBP Adobe breach record → ProjectDiscovery ColdFusion KEV CVEs) that exercises
-  ISL→ITL→PTC across both. Consumable by `toolscout solve`, `rubric-batch`, and `toolscout-eval`.
-
-### Fixed
-
 - **`cli.run` surfaces the chained cause on a failed run** (`cli.py`): a wrapped exception (e.g. an
   `RLMTaskError` that wraps the real `AdapterParseError`/endpoint error via `raise … from`) now appends
   `(caused by <Type>: <msg>)` to the response `error` string, so `output/responses/<run>.json` is
