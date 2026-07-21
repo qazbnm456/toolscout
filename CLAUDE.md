@@ -97,6 +97,17 @@ One companion rule ships under `.claude/rules/`:
   `cli`, `render`, `export`), so labels are facts. Do NOT add an evidence/score field to the SUBMIT type,
   reintroduce a policy-facing rubric citation, or add a second facts derivation.
 
+- **A principled DECLINE is a REACHABLE negative, never a score.** The planner MAY finalize
+  `TaskOutcome.cannot_complete=True` (a JUDGEMENT field like `answer` — NOT the evidence/score the
+  citation-only SUBMIT forbids — with the reason in `answer`) when the configured toolspace genuinely
+  cannot serve the task. `response.build_response` maps that to `status="refused"` +
+  `RefusalInfo(reason="unsupported")` — the ONLY path to the `refused` status (a crash / blank answer is
+  `failed`). This is a legitimate "unsupported by this toolspace" NEGATIVE trajectory: a reward-free FACT
+  (`assemble` carries `cannot_complete` verbatim so a re-render/export re-derives the same reading;
+  `rl_export.run_labels` surfaces it, mirroring a clean negative), NEVER a reward or a scoring change. Keep
+  it NARROW in the `agent.py` prompt — decline only when NO suitable tool exists, never as an escape hatch
+  for a solvable-but-hard task; the always-SUBMIT pressure for serviceable tasks stands.
+
 - **rlm-kit's hardest invariant holds here: toolscout produces TRAJECTORIES, never reward.** ATLAS is a
   rubric-based RFT (*training*) paper; toolscout is the **rollout stage ONLY**. The rubric is decomposed
   into criteria across the four ATLAS categories (TF / TA / TG / PA) and carried as **LABELS** in the run's

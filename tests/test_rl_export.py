@@ -22,6 +22,15 @@ def test_run_labels_are_facts(tmp_path):
     assert lab["finalized"] is True
     assert lab["servers_loaded"] == 1 and lab["tools_used"] == 1
     assert lab["unbacked_servers"] == 1
+    assert lab["cannot_complete"] is False
+    assert "reward" not in lab and "score" not in lab
+
+
+def test_run_labels_flag_a_principled_decline(tmp_path):
+    """A DECLINE lands as the reward-free `cannot_complete` FACT (mirroring a clean negative) — no score."""
+    events = _run(tmp_path, "r1", {"answer": "no server here exposes weather data", "cannot_complete": True})
+    lab = run_labels(events)
+    assert lab["finalized"] is True and lab["cannot_complete"] is True
     assert "reward" not in lab and "score" not in lab
 
 

@@ -136,7 +136,7 @@
       const title = `${t.label} · +${secs(t.rel_s)} · took ${secs(t.duration_s)}`;
       parts.push(`<button class="seg ${toolFam(t)}" role="listitem" data-tool="${t.seq}" ` +
         `data-turn-index="${ti != null ? ti : ""}" style="flex:${Math.max(dur, 0.01).toFixed(3)} 0 ${w}px" title="${esc(title)}">` +
-        `<span class="seg-ic">${ICONS[TOOL_ICON[t.label]] || ""}</span>` +
+        `<span class="seg-ic">${ICONS[TOOL_ICON[t.label]] || ICONS.generic || ""}</span>` +
         `<span class="seg-lab">${esc(t.label)}</span><span class="seg-dur">${esc(secs(t.duration_s))}</span></button>`);
     });
     trajEl.timeline.innerHTML = parts.join("");

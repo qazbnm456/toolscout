@@ -41,12 +41,28 @@ def _process(events: list[dict], run_id: str, *, status: str = "ok") -> ProcessI
 
 
 def build_response(assembled: AssembledOutcome, events: list[dict], run_id: str) -> TaskResponse:
-    """Serialize a completed run as a `TaskResponse`."""
+    """Serialize a completed run as a `TaskResponse`.
+
+    A planner that finalized with `cannot_complete=True` — a principled "this toolspace cannot serve the
+    task" DECLINE — reads as `refused` (a legitimate negative), NOT `ok` and NOT a crash `failed`. The
+    reason it wrote into `answer` becomes the refusal `error`; `refusal.reason` is the stable `unsupported`
+    code. The outcome stays attached, so the trajectory's coverage facts survive."""
+    task = assembled.task or str(_meta(events).get("task", ""))
+    if assembled.cannot_complete:
+        return TaskResponse(
+            id=run_id,
+            status="refused",
+            task=task,
+            outcome=assembled,
+            process=_process(events, run_id, status="refused"),
+            refusal=RefusalInfo(refused=True, reason="unsupported"),
+            error=(assembled.answer or "").strip() or "The toolspace cannot serve this task.",
+        )
     status = "ok" if (assembled.answer or "").strip() else "failed"
     return TaskResponse(
         id=run_id,
         status=status,
-        task=assembled.task or str(_meta(events).get("task", "")),
+        task=task,
         outcome=assembled,
         process=_process(events, run_id, status=status),
         error="" if status == "ok" else "The run finalized without a usable answer.",

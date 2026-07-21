@@ -10,7 +10,30 @@ read, and exports a REWARD-FREE trajectory dataset.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-07-21
+
+### Added
+
+- **The planner can finalize a PRINCIPLED DECLINE — `refused` is now a reachable outcome.** The
+  `ok | refused | failed` trichotomy was a promise the code couldn't keep: the only reachable negatives
+  were a crash `failed` or an ungrounded `ok`, so there was no sanctioned way to say "this toolspace
+  cannot serve the task." Added one optional JUDGEMENT field to the SUBMIT — `TaskOutcome.cannot_complete`
+  (`schema.py`, default False; the reason rides in `answer`) — carried verbatim into `AssembledOutcome`
+  (`assemble.py`) so a re-render/export re-derives the SAME reading. `response.build_response` now maps a
+  declined outcome → `status="refused"` + `RefusalInfo(refused=True, reason="unsupported")` (with the
+  planner's reason as the refusal `error`), making the previously-DEAD `RefusalInfo` path reachable from an
+  ordinary SUBMIT. The prompt (`agent.py`) sanctions the decline NARROWLY: decline only after looking and
+  finding no suitable tool — never as an escape hatch for a solvable-but-hard task; the always-SUBMIT
+  pressure for serviceable tasks is unchanged. `rl_export.run_labels` surfaces `cannot_complete` as a
+  REWARD-FREE FACT (mirroring a clean negative; no score, no reward). The studio reflects `refused` with no
+  server change — `live._final_response` serves the durable response verbatim and the frontend's REFUSED
+  card keys off `status`. A principled "unsupported by this toolspace" is a legitimate negative
+  TRAJECTORY, not a scoring change.
+- **`taskset.example.json`** — a paired starter task set for `toolspace.example.json`, in the ATLAS
+  `{id, task, reference}` shape (fuzzy `task` for the planner, judge-only `reference`). Three no-key tasks
+  over the curated `securitycontext` + `hibp` servers: one per server, plus `adobe-breach-to-coldfusion-brief`,
+  a cross-server briefing (HIBP Adobe breach record → ProjectDiscovery ColdFusion KEV CVEs) that exercises
+  ISL→ITL→PTC across both. Consumable by `toolscout solve`, `rubric-batch`, and `toolscout-eval`.
 
 ### Fixed
 
@@ -22,17 +45,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
   `studio/pyproject.toml` (mirroring the sibling harnesses) + a "Subscription mode" section to the studio
   README. Closes a latent cross-downstream drift (this was the same gap fixed in the siblings); the
   paired-extras convention is now documented in rlm-kit's "Building a consumer" guide.
-
-### Added
-
-- **`taskset.example.json`** — a paired starter task set for `toolspace.example.json`, in the ATLAS
-  `{id, task, reference}` shape (fuzzy `task` for the planner, judge-only `reference`). Three no-key tasks
-  over the curated `securitycontext` + `hibp` servers: one per server, plus `adobe-breach-to-coldfusion-brief`,
-  a cross-server briefing (HIBP Adobe breach record → ProjectDiscovery ColdFusion KEV CVEs) that exercises
-  ISL→ITL→PTC across both. Consumable by `toolscout solve`, `rubric-batch`, and `toolscout-eval`.
-
-### Fixed
-
 - **`cli.run` surfaces the chained cause on a failed run** (`cli.py`): a wrapped exception (e.g. an
   `RLMTaskError` that wraps the real `AdapterParseError`/endpoint error via `raise … from`) now appends
   `(caused by <Type>: <msg>)` to the response `error` string, so `output/responses/<run>.json` is
