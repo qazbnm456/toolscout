@@ -21,24 +21,14 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+# reward-free rubric TYPES — now rlm-kit's shared, taxonomy-agnostic primitives, re-exported here so
+# toolscout's own `from .schema import Criterion, ...` call sites are unchanged.
+from rlm_kit.rubric import Criterion, CriterionFact, RubricCriteria  # noqa: F401 (re-export, back-compat)
+
 # ATLAS rubric categories: Task Fulfillment, Tool Appropriateness, Tool Grounding, Parameter Accuracy.
-# The category values are toolscout's domain (the kit, if PB3 lands, keeps `category` an opaque string).
+# The rubric TYPES above are rlm-kit's (category is opaque to the kit); toolscout owns only this ATLAS
+# category set + the criterion descriptions + the lens (see rubric.py).
 CRITERION_CATEGORIES = ("TF", "TA", "TG", "PA")
-
-
-class Criterion(BaseModel):
-    """One rubric criterion — the STRUCTURE only. Scoring (`dᵢ∈[0,1]`) is the TRAINER's job, never here."""
-
-    name: str = Field(..., description="short unique criterion id, e.g. 'answers_all_parts'")
-    description: str = Field(..., description="what the trajectory must satisfy, observable from the trace")
-    weight: float = Field(1.0, description="relative weight WITHIN its category (the trainer aggregates)")
-    category: str = Field(..., description="one of TF / TA / TG / PA")
-
-
-class RubricCriteria(BaseModel):
-    """The per-task rubric: a set of criteria generated offline (host-side), stored in `run_start` meta."""
-
-    criteria: list[Criterion] = Field(default_factory=list)
 
 
 class TaskOutcome(BaseModel):
@@ -60,15 +50,6 @@ class TaskOutcome(BaseModel):
     judge_call_id: Optional[str] = Field(
         None, description="step_id of the rubric_judge tool_call, if the opt-in self-check ran"
     )
-
-
-class CriterionFact(BaseModel):
-    """A DETERMINISTIC observation about one criterion, extracted from the trace (a FACT, not a score)."""
-
-    criterion: str
-    category: str
-    weight: float
-    observed: dict = Field(default_factory=dict, description="deterministic facts (counts, ids, cited outputs)")
 
 
 class AssembledOutcome(BaseModel):

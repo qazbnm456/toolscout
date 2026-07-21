@@ -22,7 +22,17 @@ from __future__ import annotations
 import json
 from typing import Callable, Optional
 
-from .schema import CRITERION_CATEGORIES, Criterion, CriterionFact, RubricCriteria
+from rlm_kit.rubric import (  # the reward-free rubric PRIMITIVES (category-agnostic); wrapped below
+    Criterion,
+    CriterionFact,
+    RubricCriteria,
+    criteria_facts as _kit_criteria_facts,
+    rubric_from_meta as _kit_rubric_from_meta,
+    rubric_to_meta,  # noqa: F401 — re-exported (cli/rl_export/__init__ do `from .rubric import rubric_to_meta`)
+    validate_rubric as _kit_validate_rubric,
+)
+
+from .schema import CRITERION_CATEGORIES
 
 # What each ATLAS category MEANS — reused by the prompt, the default skeleton, and the fact lens.
 CATEGORY_MEANING = {
@@ -72,8 +82,11 @@ def parse_rubric(raw: str) -> RubricCriteria:
     return RubricCriteria(criteria=out)
 
 
-def default_rubric(task: str) -> RubricCriteria:
-    """A deterministic, model-free rubric skeleton — one criterion per category. Offline demo + CI."""
+def default_rubric(task: str = "") -> RubricCriteria:
+    """A deterministic, model-free rubric skeleton — one criterion per category. Offline demo + CI.
+
+    `task` is optional so this is callable as `default_rubric()` (the read-time fallback in
+    `criteria_facts`); an empty task collapses to an empty description slot below."""
     task = " ".join((task or "").split())[:120]
     return RubricCriteria(criteria=[
         Criterion(name="answers_the_task", category="TF", weight=1.0,
@@ -87,27 +100,10 @@ def default_rubric(task: str) -> RubricCriteria:
     ])
 
 
-def rubric_to_meta(rubric: RubricCriteria) -> list[dict]:
-    """Serialize the rubric for `run_start` meta (LABELS carried alongside the run — never a reward)."""
-    return [c.model_dump() for c in rubric.criteria]
-
-
 def rubric_from_meta(events: list[dict]) -> RubricCriteria:
-    """Recover the rubric stored in a run's `run_start` meta (empty if none was recorded)."""
-    for e in events:
-        if e.get("type") == "run_start":
-            raw = ((e.get("payload") or {}).get("meta") or {}).get("rubric")
-            if isinstance(raw, list):
-                crits = []
-                for c in raw:
-                    if not isinstance(c, dict) or c.get("category") not in CRITERION_CATEGORIES:
-                        continue
-                    try:  # skip a malformed entry (missing name/description) — never crash the read path
-                        crits.append(Criterion(**c))
-                    except (TypeError, ValueError):
-                        continue
-                return RubricCriteria(criteria=crits)
-    return RubricCriteria(criteria=[])
+    """Recover the rubric stored in a run's `run_start` meta (empty if none), filtered to toolscout's
+    ATLAS categories. Thin wrapper over rlm-kit's taxonomy-agnostic primitive."""
+    return _kit_rubric_from_meta(events, categories=CRITERION_CATEGORIES)
 
 
 def _tool_calls(events: list[dict], name: str) -> list[dict]:
@@ -168,46 +164,20 @@ _OBSERVABLE_VOCAB = ("server", "tool", "load", "call", "arg", "answer", "describ
 
 
 def validate_rubric(rubric: RubricCriteria) -> list[str]:
-    """A DETERMINISTIC structural lint of a rubric — NOT a semantic-quality judge. Returns human-readable
-    issues (empty list = clean). Checks the ATLAS-adjacent structural properties we CAN check offline:
-    all four categories represented, unique criterion names (overlap-lite), non-empty descriptions, and a
-    weak observability heuristic. Deeper "is this rubric GOOD" validation needs the eval harness + a real
-    training signal — out of scope here."""
-    criteria = rubric.criteria
-    if not criteria:
-        return ["rubric has no criteria"]
-    issues: list[str] = []
-    present = {c.category for c in criteria}
-    missing = [cat for cat in CRITERION_CATEGORIES if cat not in present]
-    if missing:
-        issues.append(f"categories not represented: {missing}")
-    names = [c.name for c in criteria]
-    dupes = sorted({n for n in names if names.count(n) > 1})
-    if dupes:
-        issues.append(f"duplicate criterion names: {dupes}")
-    empty = [c.name for c in criteria if not (c.description or "").strip()]
-    if empty:
-        issues.append(f"criteria with empty descriptions: {empty}")
-    vague = [c.name for c in criteria
-             if not any(w in (c.description or "").lower() for w in _OBSERVABLE_VOCAB)]
-    if vague:
-        issues.append("criteria whose description may not be trace-observable (mentions no "
-                      f"server/tool/call/arg/answer/...): {vague}")
-    return issues
+    """A DETERMINISTIC structural lint of a rubric — NOT a semantic-quality judge — toolscout's ATLAS
+    category coverage + the observability heuristic. Thin wrapper over rlm-kit's primitive. Returns
+    human-readable issues (empty list = clean). Deeper "is this rubric GOOD" validation needs the eval
+    harness + a real training signal — out of scope here."""
+    return _kit_validate_rubric(rubric, categories=CRITERION_CATEGORIES, observable_vocab=_OBSERVABLE_VOCAB)
 
 
 def criteria_facts(events: list[dict], criteria: Optional[list[Criterion]] = None) -> list[CriterionFact]:
-    """Per-criterion DETERMINISTIC facts from the trace. `criteria` defaults to the run's recorded rubric.
+    """Per-criterion DETERMINISTIC facts from the trace. `criteria` defaults to the run's recorded rubric,
+    falling back to `default_rubric()` when a trace carries none — SAFE because the skeleton is constant.
 
-    Each `CriterionFact.observed` holds the raw counts/ids its category cares about — a FACT surface for
-    the trainer (or the opt-in judge) to score against. This function NEVER decides met/unmet or a score.
+    Sources the facts from toolscout's OWN `trace_facts` and slices them through `_CATEGORY_LENS` via
+    rlm-kit's pure `criteria_facts` primitive. NEVER decides met/unmet or a score.
     """
     if criteria is None:
-        criteria = rubric_from_meta(events).criteria
-    facts = trace_facts(events)
-    out: list[CriterionFact] = []
-    for c in criteria:
-        lens = _CATEGORY_LENS.get(c.category, ())
-        observed = {k: facts[k] for k in lens if k in facts}
-        out.append(CriterionFact(criterion=c.name, category=c.category, weight=c.weight, observed=observed))
-    return out
+        criteria = rubric_from_meta(events).criteria or default_rubric().criteria
+    return _kit_criteria_facts(criteria, trace_facts(events), _CATEGORY_LENS)
