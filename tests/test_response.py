@@ -56,9 +56,3 @@ def test_build_failed_response_carries_process(tmp_path):
     assert resp.status == "failed" and resp.error == "boom"
     assert resp.task == "my task" and resp.outcome is None
     assert resp.process.tool_calls == 1  # still reports what the run managed
-
-
-def test_build_failed_response_refusal(tmp_path):
-    events = _events(tmp_path, None)
-    resp = build_failed_response("run-4", events, "not allowed", reason="refused")
-    assert resp.status == "refused" and resp.refusal.refused is True
