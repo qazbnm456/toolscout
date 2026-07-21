@@ -74,11 +74,10 @@ def build_failed_response(run_id: str, events: list[dict], detail: str, *,
     """The crash/cancel path — no outcome, but still reports the process counters gathered so far."""
     return TaskResponse(
         id=run_id,
-        status="failed" if reason != "refused" else "refused",
+        status="failed",
         task=task if task is not None else str(_meta(events).get("task", "")),
         outcome=None,
         process=_process(events, run_id, status=reason),
-        refusal=RefusalInfo(refused=reason == "refused", reason=detail) if reason == "refused"
-        else RefusalInfo(),
+        refusal=RefusalInfo(),
         error=detail,
     )
