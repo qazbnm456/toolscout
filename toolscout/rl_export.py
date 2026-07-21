@@ -51,10 +51,13 @@ def run_labels(events: list[dict]) -> dict:
 
     assembled = outcome_from_events(events)
     if assembled is None:
-        return {"finalized": False, "servers_loaded": 0, "tools_used": 0,
+        return {"finalized": False, "cannot_complete": False, "servers_loaded": 0, "tools_used": 0,
                 "unbacked_servers": 0, "unbacked_tools": 0, "judge_ran": False}
     return {
         "finalized": True,
+        # A principled DECLINE (the planner judged the toolspace cannot serve the task) — a FACT mirroring
+        # a clean negative trajectory, NOT a reward. The trainer decides what to do with it.
+        "cannot_complete": bool(assembled.cannot_complete),
         "servers_loaded": len(assembled.servers_loaded),
         "tools_used": len(assembled.tools_used),
         "unbacked_servers": len(assembled.unbacked_servers),

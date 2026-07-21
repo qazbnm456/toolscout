@@ -90,6 +90,9 @@ def assemble_outcome(outcome: TaskOutcome, events: list[dict], *,
         task=_task_of(events),
         answer=outcome.answer,
         summary=outcome.summary,
+        # Carry the planner's principled DECLINE flag through verbatim (a FACT, not a score) so a re-render
+        # / export re-derives the SAME `refused` reading the live run saw.
+        cannot_complete=outcome.cannot_complete,
         servers_loaded=servers_loaded,
         tools_used=tools_used,
         criteria_facts=criteria_facts,

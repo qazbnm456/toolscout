@@ -58,6 +58,26 @@ def test_run_live_streams_actions_then_prefers_the_response_file(tmp_path):
     assert final == {"status": "ok", "id": "r1"}     # the on-disk artifact wins
 
 
+def test_run_live_reflects_a_principled_refusal(tmp_path):
+    # A DECLINE (planner submitted cannot_complete=True) finalizes as `refused`; toolscout writes the
+    # response file for EVERY outcome, and _final_response prefers that on-disk artifact VERBATIM — so the
+    # console reflects `refused` (no hardcoded False), the frontend's REFUSED card keys off status.
+    final = {}
+    (tmp_path / "responses").mkdir()
+    (tmp_path / "responses" / "r-decline.json").write_text(json.dumps({
+        "status": "refused", "id": "r-decline",
+        "refusal": {"refused": True, "reason": "unsupported"},
+        "error": "no server here exposes weather data"}))
+
+    def cli_run(task, *, run_id="task", outdir="./output", **kw):
+        return types.SimpleNamespace(response_path=str(Path(outdir) / "responses" / f"{run_id}.json"))
+
+    run_live({"task": "what is the weather?"}, "r-decline", lambda e: None, final.update,
+             artifacts_dir=tmp_path, cli_run=cli_run)
+    assert final["status"] == "refused" and final["refusal"]["refused"] is True
+    assert final["refusal"]["reason"] == "unsupported"
+
+
 def test_run_live_calls_cli_run_with_the_real_run_signature(tmp_path):
     # REGRESSION guard for the zero-harness-change promise: this fake MIRRORS toolscout's real
     # `run(task, *, run_id, outdir, config, on_event, catalog, extra_tools)` EXACTLY. If run_live ever
