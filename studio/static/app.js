@@ -22,6 +22,9 @@
     skill: '<svg viewBox="0 0 24 24"><path d="M5 4h9a2 2 0 012 2v14H7a2 2 0 01-2-2z"/><path d="M9 4v12"/></svg>',
     flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
     scope: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>',
+    // Neutral fallback for a tool the console does not recognize (an unmapped label — see iterations.py's
+    // `label=tool or "tool"` fallthrough), so the trajectory timeline segment is never iconless.
+    generic: '<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg>',
   };
 
   const feedEl = $("#feed"), stageEl = $("#stage-col"), metaEl = $("#meta-col"), layoutEl = $(".layout");

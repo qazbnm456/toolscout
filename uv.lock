@@ -2485,7 +2485,7 @@ wheels = [
 
 [[package]]
 name = "toolscout"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
@@ -2570,6 +2570,9 @@ dev = [
 live = [
     { name = "toolscout" },
 ]
+subscription = [
+    { name = "toolscout", extra = ["subscription"] },
+]
 
 [package.metadata]
 requires-dist = [
@@ -2577,9 +2580,10 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "toolscout", marker = "extra == 'live'", editable = "." },
+    { name = "toolscout", extras = ["subscription"], marker = "extra == 'subscription'", editable = "." },
     { name = "uvicorn", specifier = ">=0.29" },
 ]
-provides-extras = ["live", "dev"]
+provides-extras = ["live", "subscription", "dev"]
 
 [[package]]
 name = "tqdm"
