@@ -18,8 +18,8 @@ import glob
 import json
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 
 from . import __version__
 from .config import ToolscoutConfig
@@ -30,9 +30,9 @@ async def solve_task(
     task: str,
     config: ToolscoutConfig,
     *,
-    trace_path: Optional[str] = None,
+    trace_path: str | None = None,
     run_id: str = "task",
-    on_event: Optional[Callable[[dict], None]] = None,
+    on_event: Callable[[dict], None] | None = None,
     catalog=None,
     interpreter=None,
     rubric=None,
@@ -99,7 +99,7 @@ def _reset_trace(trace_path: str) -> None:
 
 @dataclass
 class RunArtifacts:
-    outcome: Optional[AssembledOutcome]
+    outcome: AssembledOutcome | None
     response: TaskResponse
     events: list
     run_id: str
@@ -113,8 +113,8 @@ def run(
     *,
     run_id: str = "task",
     outdir: str = "./output",
-    config: Optional[ToolscoutConfig] = None,
-    on_event: Optional[Callable[[dict], None]] = None,
+    config: ToolscoutConfig | None = None,
+    on_event: Callable[[dict], None] | None = None,
     catalog=None,
     rubric=None,
     extra_tools=(),

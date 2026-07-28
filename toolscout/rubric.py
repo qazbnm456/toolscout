@@ -20,15 +20,21 @@ invariant: toolscout emits the rubric + the per-criterion facts as data; scoring
 from __future__ import annotations
 
 import json
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from rlm_kit.rubric import (  # the reward-free rubric PRIMITIVES (category-agnostic); wrapped below
     Criterion,
     CriterionFact,
     RubricCriteria,
-    criteria_facts as _kit_criteria_facts,
-    rubric_from_meta as _kit_rubric_from_meta,
     rubric_to_meta,  # noqa: F401 — re-exported (cli/rl_export/__init__ do `from .rubric import rubric_to_meta`)
+)
+from rlm_kit.rubric import (
+    criteria_facts as _kit_criteria_facts,
+)
+from rlm_kit.rubric import (
+    rubric_from_meta as _kit_rubric_from_meta,
+)
+from rlm_kit.rubric import (
     validate_rubric as _kit_validate_rubric,
 )
 
@@ -171,7 +177,7 @@ def validate_rubric(rubric: RubricCriteria) -> list[str]:
     return _kit_validate_rubric(rubric, categories=CRITERION_CATEGORIES, observable_vocab=_OBSERVABLE_VOCAB)
 
 
-def criteria_facts(events: list[dict], criteria: Optional[list[Criterion]] = None) -> list[CriterionFact]:
+def criteria_facts(events: list[dict], criteria: list[Criterion] | None = None) -> list[CriterionFact]:
     """Per-criterion DETERMINISTIC facts from the trace. `criteria` defaults to the run's recorded rubric,
     falling back to `default_rubric()` when a trace carries none — SAFE because the skeleton is constant.
 

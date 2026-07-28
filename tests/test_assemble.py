@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+from tests.conftest import run_recorded
 from toolscout.assemble import assemble_outcome, outcome_from_events
 from toolscout.schema import TaskOutcome
-
-from tests.conftest import run_recorded
 
 
 def _calls():

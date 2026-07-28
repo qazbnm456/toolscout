@@ -7,8 +7,6 @@ Pure stdlib + pydantic; no dspy.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from rlm_kit.trace import EVENT_RUN_START
 
 from .schema import AssembledOutcome, ProcessInfo, RefusalInfo, TaskResponse
@@ -70,7 +68,7 @@ def build_response(assembled: AssembledOutcome, events: list[dict], run_id: str)
 
 
 def build_failed_response(run_id: str, events: list[dict], detail: str, *,
-                          reason: str = "run_failed", task: Optional[str] = None) -> TaskResponse:
+                          reason: str = "run_failed", task: str | None = None) -> TaskResponse:
     """The crash/cancel path — no outcome, but still reports the process counters gathered so far."""
     return TaskResponse(
         id=run_id,

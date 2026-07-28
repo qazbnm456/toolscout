@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+from tests.conftest import run_recorded
 from toolscout.assemble import outcome_from_events
 from toolscout.response import build_failed_response, build_response
-
-from tests.conftest import run_recorded
 
 
 def _events(tmp_path, outcome):

@@ -17,8 +17,6 @@ No dspy import — these are plain pydantic models, unit-testable in isolation a
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 # reward-free rubric TYPES — now rlm-kit's shared, taxonomy-agnostic primitives, re-exported here so
@@ -51,7 +49,7 @@ class TaskOutcome(BaseModel):
     tools_used: list[str] = Field(
         default_factory=list, description="tools actually called (cross-checked against the trace)"
     )
-    judge_call_id: Optional[str] = Field(
+    judge_call_id: str | None = Field(
         None, description="step_id of the rubric_judge tool_call, if the opt-in self-check ran"
     )
     cannot_complete: bool = Field(
@@ -115,7 +113,7 @@ class TaskResponse(BaseModel):
     object: str = "toolscout.task_response"
     status: str = "ok"                       # ok | refused | failed
     task: str = ""
-    outcome: Optional[AssembledOutcome] = None
+    outcome: AssembledOutcome | None = None
     process: ProcessInfo = Field(default_factory=ProcessInfo)
     refusal: RefusalInfo = Field(default_factory=RefusalInfo)
     error: str = ""

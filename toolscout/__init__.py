@@ -27,7 +27,7 @@ from .catalog import Catalog, Param, ServerInfo, StaticCatalog, ToolSpec, demo_c
 from .config import SUBSCRIPTION_PREFIX, ToolscoutConfig
 from .render import render_outcome, render_response
 from .response import build_failed_response, build_response
-from .rl_export import export_dataset, run_labels, run_metrics, rubric_signal
+from .rl_export import export_dataset, rubric_signal, run_labels, run_metrics
 from .rubric import (
     criteria_facts,
     default_rubric,

@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,7 @@ class ToolSpec:
     name: str
     description: str = ""
     params: list[Param] = field(default_factory=list)
-    invoke: Optional[Callable[[dict], Any]] = None  # (args_dict) -> result; None for a not-yet-materialized MCP tool
+    invoke: Callable[[dict], Any] | None = None  # (args_dict) -> result; None for a not-yet-materialized MCP tool
     # Appended AFTER invoke on purpose: demo_catalog constructs ToolSpec positionally with invoke 5th,
     # so inserting these earlier would rebind those positions. Both are optional ITL disclosure hints.
     returns: str = ""          # a compact return-type hint, e.g. from an MCP tool's declared outputSchema
@@ -66,7 +67,7 @@ class Catalog:
 
     def load(self, server: str) -> None:
         """ISL hook. Eager backends no-op (already connected pre-run); a lazy backend connects here."""
-        return None
+        return
 
     def has_server(self, server: str) -> bool:
         return any(s.name == server for s in self.servers())

@@ -13,8 +13,8 @@ pass/fail. A never-finalized run becomes an `unscored` row, not a crash and not 
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from statistics import fmean
-from typing import Callable, Optional
 
 from toolscout.assemble import outcome_from_events
 from toolscout.rubric import trace_facts
@@ -65,7 +65,7 @@ def _execution_summary(events: list[dict], outcome: AssembledOutcome) -> str:
 
 
 def build_judge_inputs(events: list[dict], eval_task: EvalTask,
-                       outcome: Optional[AssembledOutcome] = None) -> Optional[dict]:
+                       outcome: AssembledOutcome | None = None) -> dict | None:
     """Reconstruct the ATLAS judge's inputs from the trace, or None for a never-finalized run.
 
     `outcome` may be passed when the caller already assembled it (score_run does); otherwise it is

@@ -16,12 +16,12 @@ pull signatures), `call_tool` (PTC — invoke a materialized tool), `rubric_judg
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 _ROLES = ("planner", "specialist", "judge")
 
 
-def to_event(trace_event: dict) -> Optional[dict[str, Any]]:
+def to_event(trace_event: dict) -> dict[str, Any] | None:
     """Return `{"event": <name>, "data": {...}}` for a surfaced trace event, else None."""
     t = trace_event.get("type")
     p = trace_event.get("payload") or {}

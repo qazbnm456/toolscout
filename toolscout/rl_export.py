@@ -17,7 +17,14 @@ import json
 import sys
 
 from rlm_kit.dataset import export_actions, export_sft_turns, run_label_bundle
-from rlm_kit.trace import group_by_run, load_events
+from rlm_kit.trace import (
+    CAUSE_CIRCUIT_BROKEN,
+    CAUSE_ENDPOINT,
+    CAUSE_INVALID,
+    group_by_run,
+    load_events,
+    payload_cause,
+)
 
 # The four ISL/ITL/PTC meta-tools are the PLANNER's toolspace ops; rubric_judge is the opt-in judge tool.
 META_TOOLS = ("list_servers", "load_server", "describe_tools", "call_tool")
@@ -66,6 +73,12 @@ def run_labels(events: list[dict]) -> dict:
     }
 
 
+def _judges(events: list[dict]) -> list[dict]:
+    """Every `rubric_judge` tool_call payload, in order."""
+    return [e["payload"] for e in events
+            if e["type"] == "tool_call" and (e["payload"] or {}).get("tool") == JUDGE_TOOL]
+
+
 def run_metrics(events: list[dict]) -> dict:
     """Objective EFFORT metrics — the raw material a trainer shapes into a reward. Facts, never a score."""
     from .rubric import trace_facts
@@ -86,8 +99,19 @@ def run_metrics(events: list[dict]) -> dict:
         "backend_errors": facts["backend_error_count"],
         "predispatch_rejects": facts["predispatch_reject_count"],
         "specialist_escalations": sum(1 for e in events if e["type"] == "sub_call"),
-        "judge_calls": sum(1 for e in events if e["type"] == "tool_call"
-                           and e["payload"].get("tool") == JUDGE_TOOL),
+        # BY CAUSE. `ok=False` from a model tool means three different things — the validator
+        # rejected the reply, the endpoint failed, or the breaker short-circuited WITHOUT calling
+        # the model — and this counted all of them, plus every break, as a "judge call". A break
+        # invoked neither the model nor the validator, so counting it as a call overstates the
+        # effort a judge actually cost. The other counters in this dict already partition their
+        # population; this one was the only unfiltered call count.
+        "judge_calls": sum(1 for p_ in _judges(events)
+                           if payload_cause(p_) != CAUSE_CIRCUIT_BROKEN),
+        "judge_declines": sum(1 for p_ in _judges(events) if payload_cause(p_) == CAUSE_INVALID),
+        "judge_endpoint_errors": sum(1 for p_ in _judges(events)
+                                     if payload_cause(p_) == CAUSE_ENDPOINT),
+        "judge_circuit_breaks": sum(1 for p_ in _judges(events)
+                                    if payload_cause(p_) == CAUSE_CIRCUIT_BROKEN),
         "skill_reads": sum(1 for e in events if e["type"] == "tool_call"
                            and e["payload"].get("tool") == "read_skill"),
         "elapsed_s": round(max(ts) - min(ts), 3) if len(ts) >= 2 else None,

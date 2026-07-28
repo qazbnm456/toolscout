@@ -16,7 +16,6 @@ from toolscout import mcp_toolspace as mt
 from toolscout.catalog import ServerInfo, ToolSpec
 from toolscout.mcp_toolspace import McpCatalog, _params_from_schema, _returns_from_schema
 
-
 # ---- pure helper: the scaffolding mapping ------------------------------------
 
 def test_params_from_schema_maps_types_required_defaults():
