@@ -31,13 +31,21 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from rlm_kit.trace import record_tool_call
 
 from . import scaffolding
 from .catalog import Catalog
-from .scaffolding import ArgError, coerce_args, render_server_index, render_tool, to_native, unknown_server_error, unknown_tool_error
+from .scaffolding import (
+    ArgError,
+    coerce_args,
+    render_server_index,
+    render_tool,
+    to_native,
+    unknown_server_error,
+    unknown_tool_error,
+)
 
 
 def _canonical_args(args: dict) -> str:
@@ -85,8 +93,8 @@ class Toolspace:
     exactly ATLAS's Iterative Server Loading, and the load choice becomes a `tool_call` in the trace.
     """
 
-    def __init__(self, catalog: Catalog, config, *, max_desc_chars: Optional[int] = None,
-                 max_describe_batch: Optional[int] = None) -> None:
+    def __init__(self, catalog: Catalog, config, *, max_desc_chars: int | None = None,
+                 max_describe_batch: int | None = None) -> None:
         self.catalog = catalog
         self.config = config
         self.max_desc_chars = int(max_desc_chars if max_desc_chars is not None
@@ -196,8 +204,8 @@ def make_describe_tools_tool(ts: Toolspace) -> Callable[[list], str]:
     return describe_tools
 
 
-def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, Optional[dict]], object]:
-    def call_tool(server: str, tool: str, args: Optional[dict] = None):
+def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, dict | None], object]:
+    def call_tool(server: str, tool: str, args: dict | None = None):
         """PTC. Invoke `tool` on a loaded `server` with `args` (a dict of named parameters). Returns the
         tool's result as a NATIVE Python value — keep it in a variable and compute on it; do not re-call
         to re-read (identical re-calls are refused past a small per-run budget). On a bad server/tool/arg

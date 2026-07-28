@@ -7,9 +7,8 @@ import json
 import pytest
 
 pytest.importorskip("fastapi")
-from fastapi.testclient import TestClient  # noqa: E402
-
-from toolscout_studio import app as appmod  # noqa: E402
+from fastapi.testclient import TestClient
+from toolscout_studio import app as appmod
 
 client = TestClient(appmod.app)
 

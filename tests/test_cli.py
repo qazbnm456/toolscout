@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import json
 
-from toolscout.cli import build_parser, main
-
 from tests.conftest import run_recorded
+from toolscout.cli import build_parser, main
 
 
 def test_parser_has_all_subcommands():

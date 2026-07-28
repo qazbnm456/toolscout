@@ -7,14 +7,12 @@ import types
 from pathlib import Path
 
 import pytest
-
 from toolscout_studio.live import (
     _describe_exc,
     _failed_dict,
     run_live,
     trace_event_sink,
 )
-
 
 # ---- trace_event_sink: the sandbox-invoked tools + specialist, from the recorder's on_event ----
 

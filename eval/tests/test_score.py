@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from conftest import math_calls, record_run
-
 from toolscout_eval.judge import JudgeVerdict, stub_judge
 from toolscout_eval.schema import CATEGORIES, EvalRow, EvalScore
 from toolscout_eval.score import aggregate, build_judge_inputs, score_run

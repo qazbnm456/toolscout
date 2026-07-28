@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from toolscout_eval.taskset import EvalTask, demo_taskset, load_taskset
 
 

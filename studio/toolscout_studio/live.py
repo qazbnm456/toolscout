@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from .mapper import to_event
 
@@ -123,7 +123,7 @@ def _failed_dict(run_id: str, detail: str, build_failed_response: Callable | Non
     try:
         bfr = build_failed_response
         if bfr is None:
-            from toolscout.response import build_failed_response as bfr  # noqa: PLC0414
+            from toolscout.response import build_failed_response as bfr
         return bfr(run_id, [], detail).model_dump()
     except Exception:  # noqa: BLE001 — toolscout missing; emit a self-contained failure
         return {

@@ -17,8 +17,8 @@ Sync (dspy invokes tools synchronously); `chat_fn` is injectable so the pipeline
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Optional
 
 from rlm_kit.tools import make_model_tool
 from rlm_kit.trace import record_tool_call
@@ -102,8 +102,8 @@ def _judge_chat(config) -> Callable[[str], str]:
     return chat
 
 
-def make_rubric_judge_tool(config, criteria: Optional[list[Criterion]] = None,
-                           chat_fn: Optional[Callable[[str], str]] = None) -> Callable[[str], str]:
+def make_rubric_judge_tool(config, criteria: list[Criterion] | None = None,
+                           chat_fn: Callable[[str], str] | None = None) -> Callable[[str], str]:
     """Build the `rubric_judge` tool. The rubric is baked in at construction (the run's criteria); the
     planner passes a DRAFT of what it did / its answer, and gets back per-criterion observations."""
     criteria = list(criteria or [])

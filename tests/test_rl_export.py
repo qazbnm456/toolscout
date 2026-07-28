@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from toolscout.rl_export import export_dataset, run_labels, run_metrics, rubric_signal
-
 from tests.conftest import run_recorded
+from toolscout.rl_export import export_dataset, rubric_signal, run_labels, run_metrics
 
 
 def _run(tmp_path, run_id, outcome, *, judge=()):
@@ -79,3 +78,61 @@ def test_export_dataset_is_reward_free_and_split(tmp_path):
     assert bundle["judge"] == []
     assert set(bundle["labels"]) == {"r1", "r2"} and set(bundle["rubric_signal"]) == {"r1", "r2"}
     assert bundle["planner"] and bundle["sft_turns"] is not None
+
+
+# ---- cause-splitting: a break is not a call, and a flaky last judge is not "no judge" -------
+
+
+def _judge(**kw):
+    return {"type": "tool_call", "ts": 1.0, "step_id": 1,
+            "payload": {"tool": "rubric_judge", **kw}}
+
+
+def test_a_circuit_broken_judge_is_not_counted_as_a_judge_call():
+    """A break invoked neither the model nor the validator, so counting it as a call overstates the
+    effort the judge actually cost. This was the only unfiltered call count in the dict."""
+    m = run_metrics([_judge(ok=True, observations=[{"criterion": "c", "met": True}]),
+                     _judge(ok=False, cause="circuit_broken", circuit_broken=True)])
+
+    assert m["judge_calls"] == 1
+    assert m["judge_circuit_breaks"] == 1
+
+
+def test_the_judge_counts_partition_by_cause():
+    m = run_metrics([_judge(ok=True, observations=[]),
+                     _judge(ok=False, errors=["off-schema"]),
+                     _judge(error="502 bad gateway"),
+                     _judge(ok=False, circuit_broken=True)])
+
+    assert m["judge_declines"] == 1
+    assert m["judge_endpoint_errors"] == 1
+    assert m["judge_circuit_breaks"] == 1
+    assert m["judge_calls"] == 3, "everything but the break reached the endpoint"
+
+
+def test_a_flaky_final_judge_does_not_blank_a_successful_earlier_one():
+    """`judges[-1]` was taken blindly over a HETEROGENEOUS population: a `rubric_judge` event may be
+    a real verdict, an endpoint failure, or a circuit break, and the last two carry no
+    `observations`. One flaky final call therefore erased a successful judge — which flipped
+    `judge_ran` to False in the dataset and dropped the "rubric judge ran" chip in the studio."""
+    from toolscout.assemble import _judge_observations
+
+    events = [_judge(ok=True, observations=[{"criterion": "grounded", "met": True}]),
+              _judge(error="502 bad gateway")]
+
+    obs = _judge_observations(events, None)
+
+    assert obs == [{"criterion": "grounded", "met": True}]
+
+
+def test_an_explicit_judge_call_id_still_wins():
+    """The negative control for the change above: the explicit selector must not be overridden by
+    the new "last one that produced observations" fallback."""
+    from toolscout.assemble import _judge_observations
+
+    events = [{"type": "tool_call", "ts": 1.0, "step_id": 7,
+               "payload": {"tool": "rubric_judge", "ok": True, "observations": [{"criterion": "a"}]}},
+              {"type": "tool_call", "ts": 2.0, "step_id": 9,
+               "payload": {"tool": "rubric_judge", "ok": True, "observations": [{"criterion": "b"}]}}]
+
+    assert _judge_observations(events, 7) == [{"criterion": "a"}]

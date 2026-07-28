@@ -19,9 +19,7 @@ so labels read facts too. Pure stdlib + pydantic; no dspy.
 
 from __future__ import annotations
 
-from typing import Optional
-
-from rlm_kit.trace import EVENT_RESULT
+from rlm_kit.trace import CAUSE_OK, EVENT_RESULT, payload_cause
 
 from . import rubric as rubric_mod
 from .schema import AssembledOutcome, Criterion, TaskOutcome
@@ -34,7 +32,7 @@ def _outcome_from_payload(out: dict) -> TaskOutcome:
     return TaskOutcome(**fields)
 
 
-def _judge_observations(events: list[dict], judge_call_id: Optional[str]) -> list[dict]:
+def _judge_observations(events: list[dict], judge_call_id: str | None) -> list[dict]:
     """The per-criterion observations from the opt-in judge tool_call.
 
     Resolve by the planner's cited `judge_call_id` when it matches a recorded `rubric_judge` event; else
@@ -48,13 +46,22 @@ def _judge_observations(events: list[dict], judge_call_id: Optional[str]) -> lis
     if judge_call_id:
         chosen = next((e for e in judges if e.get("step_id") == judge_call_id), None)
     if chosen is None:
-        chosen = judges[-1]
+        # The last judge call that ACTUALLY PRODUCED observations, not simply the last one.
+        # `judges` is a heterogeneous population: a `rubric_judge` event may be a real verdict, an
+        # endpoint failure, or a circuit break — and the last two carry no `observations`. Taking
+        # `judges[-1]` blindly meant one flaky final call blanked a successful earlier judge, which
+        # then flipped `judge_ran` to False in the dataset and dropped the "rubric judge ran" chip
+        # in the studio. `rlm_kit.trace.payload_cause` names the three.
+        produced = [e for e in judges
+                    if payload_cause(e["payload"] or {}) == CAUSE_OK
+                    and isinstance((e["payload"] or {}).get("observations"), list)]
+        chosen = produced[-1] if produced else judges[-1]
     obs = chosen["payload"].get("observations")
     return obs if isinstance(obs, list) else []
 
 
 def assemble_outcome(outcome: TaskOutcome, events: list[dict], *,
-                     criteria: Optional[list[Criterion]] = None) -> AssembledOutcome:
+                     criteria: list[Criterion] | None = None) -> AssembledOutcome:
     """Attach re-sourced facts + fabrication tells to the planner's judgement."""
     facts = rubric_mod.trace_facts(events)
     servers_loaded = facts["servers_loaded"]
@@ -111,7 +118,7 @@ def _task_of(events: list[dict]) -> str:
     return ""
 
 
-def outcome_from_events(events: list[dict]) -> Optional[AssembledOutcome]:
+def outcome_from_events(events: list[dict]) -> AssembledOutcome | None:
     """Reconstruct the assembled outcome from a saved trace's result event, or None if it never finalized."""
     results = [e for e in events if e["type"] == EVENT_RESULT]
     if not results:

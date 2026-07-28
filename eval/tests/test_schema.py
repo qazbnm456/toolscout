@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-
 from toolscout_eval.schema import CATEGORIES, EvalReport, EvalRow, EvalScore
 
 FORBIDDEN_FIELDS = {"reward", "rewards", "composite", "composite_score", "weighted", "weighted_score",

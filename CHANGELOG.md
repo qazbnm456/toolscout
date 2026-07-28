@@ -12,6 +12,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [0.2.0] - 2026-07-21
 
+### Fixed — a circuit break counted as a judge call, and a flaky last judge blanked a good one
+
+`ok=False` from a model-backed tool means three different things: the validator rejected the reply,
+the endpoint failed after retries, or the circuit breaker short-circuited WITHOUT calling the model
+at all. Two places here read them as one.
+
+- `run_metrics`'s `judge_calls` was the only unfiltered call count in the dict — every other counter
+  already partitions its population. A break invoked neither the model nor the validator, so
+  counting it as a call overstates what the judge cost. Now split by cause, with `judge_declines` /
+  `judge_endpoint_errors` / `judge_circuit_breaks` alongside.
+- `_judge_observations` took `judges[-1]` blindly over a HETEROGENEOUS population: a `rubric_judge`
+  event may be a real verdict, an endpoint failure, or a circuit break, and the last two carry no
+  `observations`. So one flaky final call erased a successful earlier judge — which flipped
+  `judge_ran` to False in the exported labels and dropped the "rubric judge ran" chip in the studio.
+  It now falls back to the last call that ACTUALLY PRODUCED observations; an explicit
+  `judge_call_id` still wins, and a negative control pins that.
+
+Neither is observed in the checked-in corpus (`rubric_judge` is opt-in and has never fired there),
+so both are correct-by-construction. Found by an audit prompted by a sibling repo where the same
+collapse WAS observed — 113 of 116 "declines" were unreachable-endpoint calls, feeding a scored
+rubric criterion and a delivered report.
+
 ### Added
 
 - **The planner can finalize a PRINCIPLED DECLINE — `refused` is now a reachable outcome.** The

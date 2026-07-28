@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
@@ -49,8 +48,8 @@ class ToolscoutConfig:
     # `from_env` requires them. Empty defaults are only for direct construction in tests.
     main_model: str = ""   # planner: a small, cheap orchestrator driving the ISL/ITL/PTC REPL loop
     sub_model: str = ""    # specialist: an expensive brain for a subtle sub-question (via llm_query)
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
 
     # ── The toolspace (ISL/ITL over external MCP servers) ────────────────────────────────────────
     # Path to a JSON list of MCP server specs: [{"name": "...", "description": "...",
@@ -74,8 +73,8 @@ class ToolscoutConfig:
     # ── The OPT-IN rubric judge tool (a verify-before-finalize self-check) ────────────────────────
     enable_judge: bool = False      # OFF by default: purest w.r.t. "trajectories, never reward"
     judge_model: str = ""           # defaults to the specialist; a separate OpenAI-compatible endpoint
-    judge_base_url: Optional[str] = None
-    judge_api_key: Optional[str] = None
+    judge_base_url: str | None = None
+    judge_api_key: str | None = None
     judge_system_prompt: str = _DEFAULT_JUDGE_SYSTEM_PROMPT
     judge_timeout: float = 60.0
     judge_max_tokens: int = 2048
@@ -88,7 +87,7 @@ class ToolscoutConfig:
     observe: bool = False
     adapter: str = "json"
     # Generous, NOT None: a reasoning planner truncated before its answer returns empty content.
-    planner_max_tokens: Optional[int] = 16384
+    planner_max_tokens: int | None = 16384
     # HARD ceiling on the single RLM episode. No outer multi-run loop (max_retries=1) — one task =
     # one trajectory, so the trace stays valid training data. RLMTaskError is INFRA, not a schema bug.
     max_iterations: int = 45
@@ -99,7 +98,7 @@ class ToolscoutConfig:
     enable_skills: bool = True
 
     @classmethod
-    def from_env(cls) -> "ToolscoutConfig":
+    def from_env(cls) -> ToolscoutConfig:
         planner = os.getenv("TS_ROOT_LM")
         specialist = os.getenv("TS_SUB_LM")
         if not planner or not specialist:

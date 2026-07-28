@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from tests.conftest import run_recorded
 from toolscout.rubric import (
     CATEGORY_MEANING,
     criteria_facts,
@@ -13,8 +14,6 @@ from toolscout.rubric import (
     validate_rubric,
 )
 from toolscout.schema import CRITERION_CATEGORIES, Criterion, RubricCriteria
-
-from tests.conftest import run_recorded
 
 
 def test_default_rubric_covers_all_categories():

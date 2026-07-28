@@ -6,7 +6,6 @@ import json
 from types import SimpleNamespace
 
 from conftest import math_calls, record_run
-
 from toolscout_eval.cli import main
 
 

@@ -8,7 +8,6 @@ independent of whether the optional `claude-agent-sdk` extra happens to be insta
 from __future__ import annotations
 
 import pytest
-
 import rlm_kit
 
 from toolscout.agent import _maybe_subscription_lm

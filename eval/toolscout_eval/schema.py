@@ -13,8 +13,6 @@ Pure pydantic; no dspy, no openai, no toolscout import.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 # The four ATLAS judge categories: Task Fulfillment (the primary metric), Tool Appropriateness,
@@ -46,7 +44,7 @@ class EvalRow(BaseModel):
 
     task_id: str
     run_id: str
-    score: Optional[EvalScore] = None
+    score: EvalScore | None = None
     metrics: dict = Field(default_factory=dict, description="AssembledOutcome.metrics (turns, calls, errors)")
     fabrication_tells: int = Field(0, description="len(unbacked_servers) + len(unbacked_tools) from assemble")
     unscored: bool = False
