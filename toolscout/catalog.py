@@ -97,7 +97,7 @@ class StaticCatalog(Catalog):
     def describe(self, names: list[str]) -> list[ToolSpec]:
         wanted = set(names)
         out: list[ToolSpec] = []
-        for _server, (_desc, tools) in self._servers.items():
+        for _desc, tools in self._servers.values():
             for t in tools:
                 if t.name in wanted:
                     out.append(t)

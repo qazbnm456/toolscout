@@ -64,6 +64,45 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 110
 
+# ruff's DEFAULT rule set is not a stable contract — 0.16 expanded it far past the
+# pycodestyle/pyflakes baseline, which is why CI pins the version. Default rules that fight this
+# project's design are ignored BY NAME here, with the reason, rather than by loosening the pin.
+#
+# Deliberately no `select` list: curating one is a real policy decision, and this codebase leans on
+# lazy imports (keeping modules SDK-free, deferring optional extras) that a broader selection would
+# immediately argue with.
+#
+# `BLE001` is deliberately NOT here. This project drives untrusted third-party MCP servers and must
+# degrade rather than die, so a blind `except Exception` around a server's own code IS the design —
+# but every such site already carries a `# noqa: BLE001` naming WHY, which is more precise than a
+# blanket ignore and keeps a NEW blind catch from arriving unexamined.
+[tool.ruff.lint]
+ignore = [
+    # Same stance for best-effort work: a live-stream teardown, a studio shutdown, or an agent's
+    # cleanup touch must not raise out and mask the real error.
+    "S110",
+    # `__all__` is grouped by comment-delimited section, which tells a reader more than alphabetical
+    # order does.
+    "RUF022",
+    # Would swap ValueError for TypeError at a taskset validation site. That is a PUBLIC behaviour
+    # change — callers and tests catch ValueError — bought for a lint preference.
+    "TRY004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test idiom, not debt. `[x for x in xs if p(x)][0]` says "the one matching row" more plainly than
+# `next(iter(...))`; a mutable class attribute on a throwaway fixture needs no `ClassVar`; a
+# `subprocess.run` whose exit code the test asserts on itself does not want `check=True` (it would
+# raise before the assertion that reports WHY); and `srv._private` as a bare expression IS the
+# assertion — it must raise AttributeError.
+#
+# `S102` is the load-bearing one: `exec(PROXY_SOURCE, ns)` is how these tests verify the generated
+# MCP proxy source is valid Python that behaves correctly. Executing it is the ENTIRE point of the
+# test, and the source is this project's own constant, not input.
+"tests/**" = ["RUF015", "RUF012", "S101", "S102", "B018", "RUF059", "SIM115", "PLW1510"]
+"eval/tests/**" = ["RUF015", "RUF012", "S101", "PLW1510"]
+"studio/tests/**" = ["RUF015", "RUF012", "S101", "PLW1510"]
+
 [project.scripts]
 toolscout = "toolscout.cli:main"
 

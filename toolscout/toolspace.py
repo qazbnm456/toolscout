@@ -143,7 +143,8 @@ def make_load_server_tool(ts: Toolspace) -> Callable[[str], str]:
             return unknown_server_error(server, names)
         try:
             ts.catalog.load(server)   # under connect="lazy" this CONNECTS now — a wedged/refused server
-        except Exception as exc:      # must surface as fixable TEXT, not raise into the RLM loop
+        except Exception as exc:  # noqa: BLE001 — a wedged/refused server must surface as fixable
+                                  # TEXT for the planner, never raise into the RLM loop
             record_tool_call("load_server", args={"server": server}, server=server, ok=False,
                              reason="connect_error", error=_exc_text(exc))
             return (f"Could not connect to server {server!r}: {_exc_text(exc)}. "
@@ -258,7 +259,8 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, dict | None], obje
                         f"different data.")
         try:
             result = ts.catalog.call(server, tool, coerced)
-        except Exception as exc:  # a backend/tool failure is data the planner recovers from, not a crash
+        except Exception as exc:  # noqa: BLE001 — a backend/tool failure is DATA the planner
+                                  # recovers from, not a crash
             record_tool_call("call_tool", args={"tool": tool, "args": coerced}, server=server, ok=False,
                              reason="backend_error", error=_exc_text(exc))
             return f"tool {server}:{tool} raised {_exc_text(exc)}"
