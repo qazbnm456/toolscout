@@ -10,6 +10,25 @@ read, and exports a REWARD-FREE trajectory dataset.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — an endpoint failure that stringified to nothing was counted as a judge decline
+`rlm-kit` pin `f217cfad` → `6d010447`. Upstream's `trace.payload_cause` documents itself as the
+read-side mirror of `ModelToolResult.cause`, and disagreed with it on the case that matters:
+the write side has always read `endpoint_error is not None`, the read side shipped as
+`endpoint_error or error`. They differ on the EMPTY STRING, which is the common case, not a corner
+one — the field is `str(exc)`, and that is `''` for `httpx.ConnectTimeout` / `ReadTimeout` /
+`ConnectError`, `TimeoutError`, `OSError` and `http.client.RemoteDisconnected`.
+
+That lands squarely on `rl_export.run_metrics`, where `judge_calls` / `judge_declines` /
+`judge_endpoint_errors` / `judge_circuit_breaks` are a PARTITION: a dropped connection was counted
+in `judge_declines` rather than `judge_endpoint_errors`, i.e. an infrastructure fault recorded as
+the judge declining on content — in a metric that becomes training signal. The counts still summed,
+which is precisely why nothing caught it.
+
+No local code changed; the fix is entirely in the pinned dependency. Found and fixed while working
+on a sibling project that consumes the same kit.
+
 ## [0.2.0] - 2026-07-21
 
 ### Fixed — a circuit break counted as a judge call, and a flaky last judge blanked a good one
