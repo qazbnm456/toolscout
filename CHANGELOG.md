@@ -26,6 +26,10 @@ in `judge_declines` rather than `judge_endpoint_errors`, i.e. an infrastructure 
 the judge declining on content — in a metric that becomes training signal. The counts still summed,
 which is precisely why nothing caught it.
 
+Pin then moved again to `fe00f401`, which fixes the ROOT of it: `make_model_tool` now records the
+exception TYPE when `str(exc)` is empty, so `endpoint_error` can no longer be present-but-falsy at
+all. That removes the trap rather than only the one misreading it caused.
+
 No local code changed; the fix is entirely in the pinned dependency. Found and fixed while working
 on a sibling project that consumes the same kit.
 
