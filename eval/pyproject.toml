@@ -5,7 +5,7 @@ description = "Offline, reward-free evaluation harness for toolscout — score r
 requires-python = ">=3.11"  # matches the sibling toolscout (>=3.11); keeps `uv run` resolvable
 # toolscout is a CORE dependency (unlike studio, which gates it behind a `live` extra): the score path
 # imports `toolscout.assemble` / `toolscout.schema` / `toolscout.rubric` directly for every mode, so it
-# must always resolve. pydantic + rlm-kit (trace readers, make_model_tool) arrive as toolscout core deps.
+# must always resolve. pydantic + rlm-harness (trace readers, make_model_tool) arrive as toolscout core deps.
 dependencies = [
     "toolscout",
 ]
@@ -15,7 +15,7 @@ dependencies = [
 judge = ["openai>=1.0"]
 dev = ["pytest>=8"]
 
-# In-repo: toolscout is the workspace ROOT package (eval/ is a member of it). External sources (rlm-kit)
+# In-repo: toolscout is the workspace ROOT package (eval/ is a member of it). External sources (rlm-harness)
 # are declared at the workspace root's pyproject and apply here transitively.
 [tool.uv.sources]
 toolscout = { workspace = true }

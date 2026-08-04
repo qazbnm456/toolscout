@@ -1,7 +1,7 @@
 # toolscout — agent guide
 
 `toolscout` solves ONE task over a possibly LARGE MCP toolspace with a SMALL planner LM, as a traced
-rollout harness. It is a downstream *consumer* of [`rlm-kit`](https://github.com/qazbnm456/rlm-kit) (a
+rollout harness. It is a downstream *consumer* of [`rlm-harness`](https://github.com/qazbnm456/rlm-harness) (a
 scaffold over `dspy.RLM`, Recursive Language Models) and **vendors nothing** — it declares one `RLMTask`,
 adds four fixed meta-tools, and inherits the sandbox, tracing, retry, budgets, and dataset export from the
 kit. See `VENDOR.md` for the extension contract.
@@ -11,7 +11,7 @@ https://arxiv.org/html/2603.06713v1): a small planner cannot hold hundreds of to
 it **discovers** the toolspace progressively — Iterative Server Loading (ISL) → Iterative Tool Loading
 (ITL) — and **computes over tool results as code** in the sandboxed persistent REPL (Programmatic Tool
 Calling, PTC, inherited free from `dspy.RLM`). `README.md` is the lean user-facing overview; the full
-guide — what ATLAS is (and isn't), the ATLAS→rlm-kit mapping, the "trajectories, never reward" resolution,
+guide — what ATLAS is (and isn't), the ATLAS→rlm-harness mapping, the "trajectories, never reward" resolution,
 reproducing the experiments, the toolspace/roles surfaces, and layout — lives in `toolscout/README.md`
 ("the guide"). This file is the invariants for anyone editing the code.
 
@@ -27,7 +27,7 @@ One companion rule ships under `.claude/rules/`:
   - `uvx ruff check .` — lint (ruff defaults, line-length 110). It is NOT part of the pytest suite, so a
     green `pytest` is not enough on its own; keep it green as its own gate.
   - `uv run --group dev python -m pytest -q` — the package suite. Fully OFFLINE: no live model, no Deno, no
-    network. dspy-bearing paths use `DummyLM` + rlm-kit's `ScriptedInterpreter` (the offline forward path)
+    network. dspy-bearing paths use `DummyLM` + rlm-harness's `ScriptedInterpreter` (the offline forward path)
     or skip; the toolspace defaults to the built-in demo catalog, and the `McpCatalog` ADAPTER is unit-
     tested offline with a fake kit catalog (`tests/test_mcp_toolspace.py`) — no live MCP server.
   - The **studio** (`studio/`, a uv workspace member) has its OWN suite — `uv run --group dev python -m
@@ -58,7 +58,7 @@ One companion rule ships under `.claude/rules/`:
 
 ## Invariants — do not break
 
-- **The sandbox is the security boundary (inherited from rlm-kit).** The default interpreter is the
+- **The sandbox is the security boundary (inherited from rlm-harness).** The default interpreter is the
   sandboxed `pyodide`/`deno`; the toolspace and every computation run only there. Tool RESULTS are native
   Python values the planner holds in REPL variables — data, never trusted instructions. Never route the
   interpreter to `local`; never weaken the kit's guard. `config.interpreter` defaults to `"pyodide"`.
@@ -66,9 +66,9 @@ One companion rule ships under `.claude/rules/`:
 - **Keep the dspy-free modules dspy-free.** `config.py`, `schema.py`, `catalog.py`, `scaffolding.py`,
   `toolspace.py`, `rubric.py`, `assemble.py`, `render.py`, `response.py`, `rl_export.py` must NOT import
   `dspy` at module top — they stay unit-testable in isolation (they use only stdlib + pydantic + the
-  dspy-free rlm-kit modules `rlm_kit.trace` / `rlm_kit.tools` / `rlm_kit.dataset`). The heavier-dep modules
+  dspy-free rlm-harness modules `rlm_harness.trace` / `rlm_harness.tools` / `rlm_harness.dataset`). The heavier-dep modules
   are `agent.py` (dspy via `RLMTask`), `cli.py` (imports dspy lazily), `judge_tool.py` (dspy-free at top —
-  built on `rlm_kit.tools.make_model_tool`; imports `openai` lazily inside the chat fn), and
+  built on `rlm_harness.tools.make_model_tool`; imports `openai` lazily inside the chat fn), and
   `mcp_toolspace.py` (dspy-free; imported LAZILY by `catalog.load_catalog` only when a real toolspace is
   configured, so the offline path never pulls the `mcp` SDK). **`import toolscout` must NOT import dspy**:
   `SolveTask` / `setup` / `run` / `solve_task` / `make_rubric_judge_tool` are lazy PEP-562 re-exports in
@@ -108,7 +108,7 @@ One companion rule ships under `.claude/rules/`:
   it NARROW in the `agent.py` prompt — decline only when NO suitable tool exists, never as an escape hatch
   for a solvable-but-hard task; the always-SUBMIT pressure for serviceable tasks stands.
 
-- **rlm-kit's hardest invariant holds here: toolscout produces TRAJECTORIES, never reward.** ATLAS is a
+- **rlm-harness's hardest invariant holds here: toolscout produces TRAJECTORIES, never reward.** ATLAS is a
   rubric-based RFT (*training*) paper; toolscout is the **rollout stage ONLY**. The rubric is decomposed
   into criteria across the four ATLAS categories (TF / TA / TG / PA) and carried as **LABELS** in the run's
   `run_start` meta (`rubric.rubric_to_meta`) — structure, never a score. Per-criterion
@@ -131,7 +131,7 @@ One companion rule ships under `.claude/rules/`:
 
 - **MCP is CLIENT-ONLY; external servers connect EAGERLY, host-side, pre-run.** toolscout never IS an MCP
   server and never bundles one — `TS_TOOLSPACE` points it at someone else's servers (a JSON list of specs).
-  The `McpCatalog` (`mcp_toolspace.py`) is a thin ADAPTER over rlm-kit's public `rlm_kit.mcp.McpCatalog`
+  The `McpCatalog` (`mcp_toolspace.py`) is a thin ADAPTER over rlm-harness's public `rlm_harness.mcp.McpCatalog`
   (the multi-server transport — the kit owns the async→sync bridge, connect lifecycle, and hang-safety);
   toolscout only maps its raw MCP tools onto the scaffolded `ToolSpec` shape. The kit connects each server
   host-side BEFORE the run (`connect="eager"`, the default and proven path). The kit's `connect="lazy"` is
@@ -142,20 +142,20 @@ One companion rule ships under `.claude/rules/`:
   Server-authored names, descriptions, and
   schemas — AND tool outputs — are **UNTRUSTED** LM context (a prompt-injection surface, like a fetched
   page); all rendered text is length-capped (`max_desc_chars`, `scaffolding._cap`). Each MCP call records
-  exactly ONE `tool_call`, emitted by the `call_tool` meta-tool via `rlm_kit.trace.record_tool_call`; the
+  exactly ONE `tool_call`, emitted by the `call_tool` meta-tool via `rlm_harness.trace.record_tool_call`; the
   catalog is a pure transport that records nothing itself.
 
 - **The specialist (sub-LM) intercept is tracing-only; model-judgement is a TOOL.** The specialist
   (`TS_SUB_LM`, reached via dspy.RLM's built-in `llm_query`) is intercepted with `intercept_sub_lm` for
   TRACING ONLY — zero transforms — so every escalation lands as a `sub_call`. A model that GRADES the run
   against a rubric is an agentic judgement, so the `rubric_judge` is a **tool** (`judge_tool.py`, the
-  base/wrap split over `rlm_kit.tools.make_model_tool`), never smuggled into the sub-LM intercept. Do NOT
+  base/wrap split over `rlm_harness.tools.make_model_tool`), never smuggled into the sub-LM intercept. Do NOT
   put a model-judgement in the intercept.
 
 - **Models are ROLES, configured by env** (`config.py`): planner `TS_ROOT_LM`, specialist `TS_SUB_LM`,
   judge `TS_JUDGE_LM` (defaults to the specialist). Refer to them by role in code, docs, and the prompt —
   no hardcoded model name. A role whose model carries the `claude-agent-sdk/` sentinel
-  (`SUBSCRIPTION_PREFIX`) runs on the user's Claude Pro/Max SUBSCRIPTION via rlm-kit's `ClaudeAgentLM`
+  (`SUBSCRIPTION_PREFIX`) runs on the user's Claude Pro/Max SUBSCRIPTION via rlm-harness's `ClaudeAgentLM`
   (opt-in `[subscription]` extra), imported LAZILY inside the sentinel branch only. The judge **may not**
   use that sentinel — it is a separate OpenAI-compatible endpoint, and `config.from_env` REJECTS a
   subscription judge model (explicit or inherited) with an actionable error (mixed auth by design).
@@ -166,8 +166,8 @@ One companion rule ships under `.claude/rules/`:
   almost always infra (a planner-endpoint hiccup / adapter parse failure), NOT a schema bug — check the
   endpoint first.
 
-- **The trace is a VERSIONED wire format (rlm-kit `trace/v1`) — additive-only.** The schema, the event
-  types, and the envelope are rlm-kit's contract; offline readers (`render`, `export`, the studio) build on
+- **The trace is a VERSIONED wire format (rlm-harness `trace/v1`) — additive-only.** The schema, the event
+  types, and the envelope are rlm-harness's contract; offline readers (`render`, `export`, the studio) build on
   them. toolscout adds only OPTIONAL payload fields within v1 — e.g. `call_tool`'s `reason` / `server` /
   `result` / `ok`, and the `rubric` / role names / budgets carried in `run_start` meta. You may add an
   optional field; you may NOT remove, rename, or re-type an existing event type, envelope key, or
@@ -185,10 +185,10 @@ One companion rule ships under `.claude/rules/`:
 - Keep `pyproject.toml` `[project].version` and `toolscout.__version__` in sync. On a bump, fold the
   release's changes into `CHANGELOG.md` (under the new version).
 
-## Relationship to rlm-kit
+## Relationship to rlm-harness
 
-- toolscout is the dogfooding consumer that drives rlm-kit's design loop: when toolscout forces a
+- toolscout is the dogfooding consumer that drives rlm-harness's design loop: when toolscout forces a
   workaround, log the **reusable** gap and fix it GENERICALLY in the kit (the base/wrap split — a generic
-  base + syntactic guard + factory in rlm-kit, the provider + tracing here). Never special-case toolscout
+  base + syntactic guard + factory in rlm-harness, the provider + tracing here). Never special-case toolscout
   in the kit; consumer-specific values (`TS_*` roles, the `TaskOutcome` schema, the rubric categories, the
   toolspace) stay HERE.

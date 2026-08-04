@@ -1,8 +1,8 @@
 name: CI
 
 # Offline suite only: no live LLM, no network calls in tests, no Deno sandbox — dspy-bearing paths use
-# DummyLM / rlm-kit's ScriptedInterpreter, the toolspace defaults to an offline demo catalog, and any
-# model/MCP client is an injected fake (see CLAUDE.md "Verify"). `uv sync` pulls rlm-kit from GitHub
+# DummyLM / rlm-harness's ScriptedInterpreter, the toolspace defaults to an offline demo catalog, and any
+# model/MCP client is an injected fake (see CLAUDE.md "Verify"). `uv sync` pulls rlm-harness from GitHub
 # (uv.lock pins the exact commit).
 on:
   push:

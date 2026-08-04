@@ -4,7 +4,7 @@ toolscout is the ROLLOUT source (rollout → reward → training), NOT the train
 materials only: the trajectory splits (sft_turns / planner tool-ops / judge), per-run intrinsic LABELS
 (coverage/fabrication facts), per-run objective METRICS, and — the ATLAS contribution — the per-run RUBRIC
 plus its deterministic per-criterion FACTS and the opt-in judge's per-criterion OBSERVATIONS (labels). No
-reward scalar is attached (`reward=None` to rlm-kit's exporters); reward composition, the rubric's `dᵢ`
+reward scalar is attached (`reward=None` to rlm-harness's exporters); reward composition, the rubric's `dᵢ`
 scoring, credit assignment, and GRPO/SFT live in the SEPARATE fine-tuning project.
 
 Usage: python -m toolscout.rl_export "traces/*.jsonl" dataset.json
@@ -16,8 +16,8 @@ import glob
 import json
 import sys
 
-from rlm_kit.dataset import export_actions, export_sft_turns, run_label_bundle
-from rlm_kit.trace import (
+from rlm_harness.dataset import export_actions, export_sft_turns, run_label_bundle
+from rlm_harness.trace import (
     CAUSE_CIRCUIT_BROKEN,
     CAUSE_ENDPOINT,
     CAUSE_INVALID,
@@ -145,7 +145,7 @@ def export_dataset(runs: dict[str, list[dict]]) -> dict:
         "toolspace_ops": [a for a in tool_acts if a.get("tool") in META_TOOLS],
         "judge": [a for a in tool_acts if a.get("tool") == JUDGE_TOOL],
         "sft_turns": export_sft_turns(runs),
-        # The three per-run LABEL surfaces ride via rlm-kit's shared run_label_bundle (the canonical
+        # The three per-run LABEL surfaces ride via rlm-harness's shared run_label_bundle (the canonical
         # {surface: {run_id: fn(events)}} seam) — one bundle shape across consumers; `reward` is a
         # refused surface name (it raises). Output is byte-identical to the old comprehensions
         # (rubric_signal here also nests the opt-in judge's per-criterion observations).

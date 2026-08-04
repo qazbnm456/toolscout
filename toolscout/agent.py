@@ -1,7 +1,7 @@
 """SolveTask — the RLM task that solves ONE request over a large MCP toolspace, ATLAS-style.
 
 The paper's thesis: a SMALL planner cannot hold every server's every tool schema in context, so it must
-DISCOVER the toolspace progressively and compute over tool results as code. rlm-kit gives this almost for
+DISCOVER the toolspace progressively and compute over tool results as code. rlm-harness gives this almost for
 free — dspy.RLM already IS a persistent tools-as-code REPL (that is PTC). toolscout adds the two ATLAS
 disclosure mechanisms as four FIXED meta-tools (`toolspace.py`): ISL (list_servers → load_server) and ITL
 (describe_tools), over a scaffolded, uniform tool surface (`scaffolding.py`).
@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import os
 
-import rlm_kit
-from rlm_kit import (
+import rlm_harness
+from rlm_harness import (
     RLMConfig,
     RLMTask,
     get_sub_lm,
@@ -131,14 +131,14 @@ _JUDGE_HINT = ("""
 def _maybe_subscription_lm(model: str):
     """A `ClaudeAgentLM` when a role's model uses the `claude-agent-sdk/` sentinel, else None.
 
-    Imports rlm-kit's `ClaudeAgentLM` LAZILY, inside the sentinel branch ONLY, so `import toolscout` stays
+    Imports rlm-harness's `ClaudeAgentLM` LAZILY, inside the sentinel branch ONLY, so `import toolscout` stays
     dspy-free and a proxy-only install (no sentinel) never touches it. `claude-agent-sdk` is the optional
     `[subscription]` extra; the kit defers that import to construction, so a missing SDK surfaces as an
     ImportError at build time HERE — re-raised as our uv-workflow-specific actionable message.
     """
     if not model.startswith(SUBSCRIPTION_PREFIX):
         return None
-    from rlm_kit import ClaudeAgentLM
+    from rlm_harness import ClaudeAgentLM
 
     try:
         return ClaudeAgentLM(model[len(SUBSCRIPTION_PREFIX):])
@@ -152,16 +152,16 @@ def _maybe_subscription_lm(model: str):
 
 
 def setup(config: ToolscoutConfig) -> ToolscoutConfig:
-    """Configure rlm-kit (planner + specialist) for this process.
+    """Configure rlm-harness (planner + specialist) for this process.
 
-    A role whose model is `claude-agent-sdk/<id>` runs on the user's Claude Pro/Max SUBSCRIPTION (rlm-kit's
+    A role whose model is `claude-agent-sdk/<id>` runs on the user's Claude Pro/Max SUBSCRIPTION (rlm-harness's
     `ClaudeAgentLM`, injected through configure's public seam); every other role is built from the TS_*
     proxy. The judge tool always stays on its own OpenAI-compatible endpoint (enforced in config.from_env),
     never routed through the subscription — mixed auth by design.
     """
     main_lm = _maybe_subscription_lm(config.main_model)
     sub_lm = _maybe_subscription_lm(config.sub_model)
-    rlm_kit.configure(
+    rlm_harness.configure(
         RLMConfig(
             main_model=config.main_model,
             sub_model=config.sub_model,

@@ -6,7 +6,7 @@ tool schemas materialize on demand (ITL), plus a `call` dispatcher (PTC). Two ba
 - `StaticCatalog` — a fixed dict of servers → pure-Python tools. The offline DEFAULT (a small demo
   toolspace) and the CI/test fixture: no MCP subprocess, deterministic, hang-proof.
 - the MCP-backed catalog (`mcp_toolspace.McpCatalog`, imported lazily only when `TS_TOOLSPACE` is set) —
-  connects to EXTERNAL MCP servers host-side (eager-connect, pre-run) and dispatches over rlm-kit's
+  connects to EXTERNAL MCP servers host-side (eager-connect, pre-run) and dispatches over rlm-harness's
   sync bridge. Client-only; toolscout never runs a server.
 
 dspy-free and mcp-free at module top (the MCP backing is a lazy import in `load_catalog`), so this

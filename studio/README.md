@@ -86,7 +86,7 @@ planner-reasoning callback, so the **live** feed shows the *actions* (list / loa
 judge / skill / specialist) in real time, **not** the planner's reasoning turns. The reasoning is
 recovered **post-hoc from the trace** — visible on **replay** (`task.plan.step`) and in the **Trajectory
 drawer**, never in the live feed. This is the deliberate **zero-harness-change** v1: the studio adds no
-tool and no callback to the solve path. Surfacing live reasoning is a future **rlm-kit** increment (a
+tool and no callback to the solve path. Surfacing live reasoning is a future **rlm-harness** increment (a
 generic planner-step observer on the RLM), **not** a toolscout-specific callback bolted on here.
 
 ### Ordering caveat (replay)
@@ -132,9 +132,9 @@ planner / `TS_SUB_LM` specialist / `TS_BASE_URL` … see the root `.env.example`
 your MCP server specs. Without `toolscout` the live worker raises `ModuleNotFoundError` — the stream still
 completes with a `failed` card, but nothing runs.
 
-`toolscout` consumes **rlm-kit as a commit-pinned git source**, so `uv sync` is self-contained — no
-sibling checkout needed. Co-developing rlm-kit locally? Overlay it editable (`uv pip install -e
-../rlm-kit`) so your local edits are picked up.
+`toolscout` pins **rlm-harness to an exact PyPI version**, so `uv sync` is self-contained — no
+sibling checkout needed. Co-developing rlm-harness locally? Overlay it editable (`uv pip install -e
+../rlm-harness`) so your local edits are picked up.
 
 The studio reads `os.environ` directly and does **not** auto-load `.env`, so source it into your shell:
 
@@ -153,7 +153,7 @@ button and no graceful-cancel wiring: a live run runs to completion (bounded by 
 `max_iterations`). Ctrl+C on the server kills the process; an in-flight run's worker thread is a daemon
 and dies with it, which may leave a **partial trace and no stored response** for that run_id (it is simply
 not in the Load picker). Adding cooperative cancel is a future increment and, like live reasoning, belongs
-in **rlm-kit** (a generic run-cancel seam), not as a consumer-specific hack here.
+in **rlm-harness** (a generic run-cancel seam), not as a consumer-specific hack here.
 
 The frontend is served from the repo checkout (`static/` resolved next to the package). It is a
 **zero-build vanilla** page (no node/npm/bundler): `static/{index.html,app.js,style.css,trajectory.js}`
@@ -189,9 +189,9 @@ the planner's REPL turns, a tool timeline (segment width ∝ time), and a transp
 ## Not built yet (deferred)
 
 - **Cooperative cancel / graceful shutdown** — no Stop button (see above); a killed live run may leave a
-  partial trace and no stored response. The fix is a generic run-cancel seam in **rlm-kit**.
+  partial trace and no stored response. The fix is a generic run-cancel seam in **rlm-harness**.
 - **Live planner reasoning** — the live feed is actions-only; interleaving reasoning needs a generic
-  planner-step observer in **rlm-kit** (the same reason).
+  planner-step observer in **rlm-harness** (the same reason).
 - **Wheel-packaged static** — the frontend is served from the repo checkout (the supported run mode);
   bundling `static/` into the wheel for a `pip install`-only deploy is deferred. The `/` route + mount are
   guarded, so a backend-only install without the dir still boots.

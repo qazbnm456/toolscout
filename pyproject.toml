@@ -1,7 +1,7 @@
 [project]
 name = "toolscout"
 version = "0.2.0"
-description = "An ATLAS-style rollout harness on rlm-kit: a small planner progressively discovers a large MCP toolspace and computes over tool results as code, emitting reward-free trajectories + per-criterion facts for a downstream trainer."
+description = "An ATLAS-style rollout harness on rlm-harness: a small planner progressively discovers a large MCP toolspace and computes over tool results as code, emitting reward-free trajectories + per-criterion facts for a downstream trainer."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -9,8 +9,8 @@ license-files = ["LICENSE"]
 authors = [{ name = "Boik Su" }]
 keywords = ["rlm", "dspy", "mcp", "tool-use", "agent", "reinforcement-learning", "toolspace", "atlas"]
 dependencies = [
-    # rlm-kit is consumed via a git source until it ships on PyPI (see [tool.uv.sources]).
-    "rlm-kit",
+    # Pinned exactly: 1.0.0 freezes the kit's public surface under SemVer.
+    "rlm-harness==1.0.0",
     "pydantic>=2.0",
     # The toolspace is MCP: the ISL/ITL layer connects to external MCP servers (client-only).
     "mcp>=1.0",
@@ -18,11 +18,11 @@ dependencies = [
 
 [project.optional-dependencies]
 # The opt-in rubric self-check tool (TS_ENABLE_JUDGE) and the host-side `toolscout rubric` generator
-# both talk an OpenAI-compatible API via rlm-kit's make_model_tool. Off unless you enable them.
+# both talk an OpenAI-compatible API via rlm-harness's make_model_tool. Off unless you enable them.
 judge = ["openai>=1.0"]
 observe = ["langfuse>=4.6.1", "openinference-instrumentation-dspy>=0.1.36"]
 # Run planner + specialist on a Claude Pro/Max subscription (TS_ROOT_LM / TS_SUB_LM =
-# `claude-agent-sdk/<id>`) via rlm-kit's `rlm_kit.ClaudeAgentLM`. Installs the Claude Agent SDK the
+# `claude-agent-sdk/<id>`) via rlm-harness's `rlm_harness.ClaudeAgentLM`. Installs the Claude Agent SDK the
 # adapter needs; also needs the Claude Code CLI installed + logged in — a runtime prerequisite pip
 # can't express (see .env.example).
 subscription = ["claude-agent-sdk>=0.1.60"]
@@ -35,18 +35,15 @@ subscription = ["claude-agent-sdk>=0.1.60"]
 [tool.uv]
 default-groups = ["dev", "subscription-sdk"]
 
-# rlm-kit is public but not yet on PyPI, so it comes in via git (uv.lock pins the exact commit); swap to
-# a version spec once it ships on PyPI. The dogfooding loop rlm-kit is designed around still holds: when
-# co-developing rlm-kit locally, overlay an editable install (`uv pip install -e ../rlm-kit`) or bump
-# this ref after pushing, so a fix that surfaces here can be promoted into the kit.
-[tool.uv.sources]
-rlm-kit = { git = "https://github.com/qazbnm456/rlm-kit.git", branch = "main" }
+# rlm-harness resolves from PyPI at the version pinned above. The dogfooding loop it is designed around
+# still holds: when co-developing the kit locally, overlay an editable install
+# (`uv pip install -e ../rlm-harness`), then bump the pin once the change ships.
 
 # The visualization console ships IN-REPO as its own package (studio/) — a uv workspace member, NOT part
 # of the `toolscout` wheel. It reads this package's trace/TaskResponse contract, so co-locating keeps
 # them in sync; its web stack (fastapi/uvicorn/frontend) stays behind the package boundary + the studio's
-# `live` optional extra, so a harness-only install never pulls it. The external git source (rlm-kit)
-# lives here at the workspace root and applies to every member.
+# `live` optional extra, so a harness-only install never pulls it. rlm-harness is pinned at the
+# workspace root and applies to every member.
 [tool.uv.workspace]
 members = ["studio", "eval"]
 

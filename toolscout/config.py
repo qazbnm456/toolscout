@@ -1,6 +1,6 @@
 """Configuration for toolscout — model ROLES, never hardcoded model names.
 
-Three ROLES (the rlm-kit-consumer convention): the RLM PLANNER (root LM) drives the ISL→ITL→PTC
+Three ROLES (the rlm-harness-consumer convention): the RLM PLANNER (root LM) drives the ISL→ITL→PTC
 loop and holds tool outputs in the REPL; the SPECIALIST (sub LM, reached via `llm_query`) is an
 expensive brain for a subtle sub-question the planner escalates; and the JUDGE (reached through the
 OPT-IN `rubric_judge` tool) is a swappable rubric self-check that returns per-criterion OBSERVATIONS
@@ -22,7 +22,7 @@ from dataclasses import dataclass
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
 # The sentinel model-string prefix that routes a ROLE onto the user's Claude Pro/Max SUBSCRIPTION via
-# rlm-kit's ClaudeAgentLM (see agent._maybe_subscription_lm). A config-level naming convention, so it
+# rlm-harness's ClaudeAgentLM (see agent._maybe_subscription_lm). A config-level naming convention, so it
 # lives in this dspy-free module; agent.py imports it for the actual (lazy, dspy-bearing) wiring.
 SUBSCRIPTION_PREFIX = "claude-agent-sdk/"
 
@@ -79,7 +79,7 @@ class ToolscoutConfig:
     judge_timeout: float = 60.0
     judge_max_tokens: int = 2048
     judge_transient_retries: int = 1
-    # After this many CONSECUTIVE invalid judge outputs the tool short-circuits (rlm-kit make_model_tool).
+    # After this many CONSECUTIVE invalid judge outputs the tool short-circuits (rlm-harness make_model_tool).
     judge_circuit_break: int = 4
 
     # ── RLM runtime knobs ────────────────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ class ToolscoutConfig:
         api_key = os.getenv("TS_API_KEY")
         enable_judge = _env_bool("TS_ENABLE_JUDGE", False)
         judge = os.getenv("TS_JUDGE_LM") or specialist
-        # The judge tool is a SEPARATE OpenAI-compatible client (judge_tool._judge_chat → rlm-kit
+        # The judge tool is a SEPARATE OpenAI-compatible client (judge_tool._judge_chat → rlm-harness
         # make_model_tool), NOT the subscription Agent SDK adapter — so its model can NEVER be a
         # `claude-agent-sdk/…` sentinel. Two ways the sentinel could reach it, both config errors: an
         # EXPLICIT TS_JUDGE_LM sentinel, or the DEFAULT inheriting a subscription TS_SUB_LM when

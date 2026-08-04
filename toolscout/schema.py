@@ -8,7 +8,7 @@ trace on read (`assemble.assemble_outcome`), self-reported reference lists are c
 recorded `tool_call`s, and a claimed server/tool with no recorded event lands in `unbacked_servers` /
 `unbacked_tools` — the fabrication tell. (There is no `cited_criteria`: the rubric is a trainer/eval-side
 artifact the agent never sees at inference, so citing it would be meaningless; the per-criterion signal
-is the deterministic `criteria_facts`.) This is the rlm-kit judgement-only pattern (README "Building a
+is the deterministic `criteria_facts`.) This is the rlm-harness judgement-only pattern (README "Building a
 consumer").
 
 No dspy import — these are plain pydantic models, unit-testable in isolation and passed to dspy only as
@@ -19,12 +19,12 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-# reward-free rubric TYPES — now rlm-kit's shared, taxonomy-agnostic primitives, re-exported here so
+# reward-free rubric TYPES — now rlm-harness's shared, taxonomy-agnostic primitives, re-exported here so
 # toolscout's own `from .schema import Criterion, ...` call sites are unchanged.
-from rlm_kit.rubric import Criterion, CriterionFact, RubricCriteria  # noqa: F401 (re-export, back-compat)
+from rlm_harness.rubric import Criterion, CriterionFact, RubricCriteria  # noqa: F401 (re-export, back-compat)
 
 # ATLAS rubric categories: Task Fulfillment, Tool Appropriateness, Tool Grounding, Parameter Accuracy.
-# The rubric TYPES above are rlm-kit's (category is opaque to the kit); toolscout owns only this ATLAS
+# The rubric TYPES above are rlm-harness's (category is opaque to the kit); toolscout owns only this ATLAS
 # category set + the criterion descriptions + the lens (see rubric.py).
 CRITERION_CATEGORIES = ("TF", "TA", "TG", "PA")
 

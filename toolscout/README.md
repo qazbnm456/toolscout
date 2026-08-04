@@ -5,7 +5,7 @@ The deep documentation for toolscout. The top-level [`README.md`](../README.md) 
 is, what toolscout implements of it, what it deliberately leaves to you, and every surface in detail.
 
 - [What ATLAS is — and what it isn't](#what-atlas-is--and-what-it-isnt)
-- [The ATLAS mechanisms, mapped onto rlm-kit](#the-atlas-mechanisms-mapped-onto-rlm-kit)
+- [The ATLAS mechanisms, mapped onto rlm-harness](#the-atlas-mechanisms-mapped-onto-rlm-harness)
 - [What toolscout implements — and what it leaves to you](#what-toolscout-implements--and-what-it-leaves-to-you)
 - [Reproducing the ATLAS experiments](#reproducing-the-atlas-experiments)
 - [`trajectories, never reward`](#trajectories-never-reward)
@@ -14,7 +14,7 @@ is, what toolscout implements of it, what it deliberately leaves to you, and eve
 - [Judgement-only SUBMIT + assemble-on-read](#judgement-only-submit--assemble-on-read)
 - [Evaluation (`toolscout-eval`)](#evaluation-toolscout-eval)
 - [Layout](#layout)
-- [Relationship to rlm-kit](#relationship-to-rlm-kit)
+- [Relationship to rlm-harness](#relationship-to-rlm-harness)
 
 ## What ATLAS is — and what it isn't
 
@@ -46,14 +46,14 @@ decisions, optimized through reinforcement learning rather than fixed architectu
 scaffolding alone (an untrained model using the meta-tools) is the starting line; RFT is what closes the
 gap to frontier agents.
 
-## The ATLAS mechanisms, mapped onto rlm-kit
+## The ATLAS mechanisms, mapped onto rlm-harness
 
 toolscout implements the **inference architecture** (a) and the **rubric/judging methodology** (b) as a
-downstream consumer of rlm-kit — one `RLMTask`, four fixed meta-tools, everything else inherited.
+downstream consumer of rlm-harness — one `RLMTask`, four fixed meta-tools, everything else inherited.
 
 | ATLAS component | toolscout | where |
 | --- | --- | --- |
-| **PTC** — Programmatic Tool Calling (tools as code in a persistent REPL) | inherited — `dspy.RLM` *is* a persistent tools-as-code REPL | rlm-kit |
+| **PTC** — Programmatic Tool Calling (tools as code in a persistent REPL) | inherited — `dspy.RLM` *is* a persistent tools-as-code REPL | rlm-harness |
 | **ISL** — Iterative Server Loading | `list_servers()` → `load_server(name)` meta-tools; server selection is a recorded decision | `toolspace.py` |
 | **ITL** — Iterative Tool Loading | `describe_tools([names])` — tool schemas disclosed just-in-time (with a declared return type + one example output) | `toolspace.py` |
 | **Scaffolding** — normalize heterogeneous schemas + informative errors | uniform Python signatures, arg coercion, fixable error strings, the optional `MCPServer` call proxy | `scaffolding.py` |
@@ -65,7 +65,7 @@ the JSONL trace as a `tool_call` — the exact signal ATLAS's rubric scores.
 
 ## What toolscout implements — and what it leaves to you
 
-Nothing below is "can't". Each gap is a deliberate boundary — either an rlm-kit invariant (the kit
+Nothing below is "can't". Each gap is a deliberate boundary — either an rlm-harness invariant (the kit
 produces **trajectories, never reward**), or something that is inherently the operator's to supply (your
 toolspace, your tasks, your models).
 
@@ -76,7 +76,7 @@ toolspace, your tasks, your models).
 | Deterministic per-criterion facts from the trace | **Yes** — reward-free via `rl_export` | Observations, not `dᵢ∈[0,1]` |
 | Optional in-trajectory rubric self-check | **Yes, opt-in** — a tool-LM the planner chooses to call | Recorded as a `tool_call`, emits per-criterion labels, never a reward |
 | 4-category LLM-as-judge **evaluation** scorecard | **Yes** — `toolscout-eval` | Measurement, kept separate from the training reward (as the paper mandates) |
-| Turning the rubric into a numeric **reward** (compose `dᵢ`, weights, credit assignment) | **No — deliberate** | rlm-kit invariant: trajectories, never reward. Every exporter carries `reward=None`. |
+| Turning the rubric into a numeric **reward** (compose `dᵢ`, weights, credit assignment) | **No — deliberate** | rlm-harness invariant: trajectories, never reward. Every exporter carries `reward=None`. |
 | The **RFT training loop** (GRPO cold-start, policy-weight updates) | **No — deliberate** | A separate fine-tuning project consumes the reward-free dataset |
 | The paper's **task set + toolspace** (≈300 tasks, 28 servers) | **No — not bundled** | Your toolspace is your trust declaration; benchmarks are yours to bring |
 | The paper's **models** (Qwen2.5-7B / Qwen3-4B policy, Qwen3-30B judge) | **No — not hardcoded** | Roles are set by env; no default vendor |
@@ -114,7 +114,7 @@ evaluation judge from the training reward.
 
 ## `trajectories, never reward`
 
-ATLAS is a **training** (rubric-based RFT) paper. rlm-kit's hardest invariant is that it produces
+ATLAS is a **training** (rubric-based RFT) paper. rlm-harness's hardest invariant is that it produces
 **trajectories, never reward**. toolscout resolves the tension by being the **rollout stage only**:
 
 - The rubric is decomposed into criteria (Task Fulfillment / Tool Appropriateness / Tool Grounding /
@@ -193,7 +193,7 @@ the shipped default is hosted-first-party only. (A bundle such as `darknet-mcp-s
 `npx` package fanning in 66 tools incl. live Tor egress — is a clear AVOID-as-default.)
 
 By default servers connect **eagerly, host-side, before the run** (`TS_CONNECT=eager`, the proven path).
-The opt-in `TS_CONNECT=lazy` is **per-transport** (a property of the underlying rlm-kit MCP client): a URL
+The opt-in `TS_CONNECT=lazy` is **per-transport** (a property of the underlying rlm-harness MCP client): a URL
 (streamable-HTTP) server defers its connect to first `load_server` — bounded, and a wedged connect is
 cancel-reaped by the kit — while a stdio server still connects eagerly (deferring a local subprocess spawn
 buys nothing). Either way, `load_server` wraps the connect so a failure surfaces as fixable **text** (a
@@ -215,7 +215,7 @@ Three roles, configured by env, never hardcoded:
   OpenAI-compatible endpoint. It may **not** use the subscription sentinel (mixed auth by design).
 
 Give the planner or specialist a `claude-agent-sdk/<id>` model to run it on your personal Claude Pro/Max
-subscription (rlm-kit's `ClaudeAgentLM`, the `[subscription]` extra) instead of a metered API.
+subscription (rlm-harness's `ClaudeAgentLM`, the `[subscription]` extra) instead of a metered API.
 
 ## Judgement-only SUBMIT + assemble-on-read
 
@@ -250,7 +250,7 @@ toolscout/
   catalog.py       # the toolspace abstraction: Catalog/StaticCatalog, demo_catalog, load_catalog
   scaffolding.py   # normalize schemas → uniform signatures; arg coercion; informative errors; call proxy
   toolspace.py     # the four ISL/ITL/PTC meta-tools (list_servers/load_server/describe_tools/call_tool)
-  mcp_toolspace.py # McpCatalog — adapter over rlm-kit's rlm_kit.mcp.McpCatalog (external MCP; live path)
+  mcp_toolspace.py # McpCatalog — adapter over rlm-harness's rlm_harness.mcp.McpCatalog (external MCP; live path)
   rubric.py        # rubric generation + validate_rubric lint + deterministic criteria_facts (read-time)
   assemble.py      # re-source outcome from the trace; flag fabrication
   render.py        # human-readable outcome/response text
@@ -264,9 +264,9 @@ studio/            # the visualization console (uv workspace member, not in the 
 eval/              # toolscout-eval — offline, reward-free 4-category (TF/TA/TG/PA) 0–10 judge scorer
 ```
 
-## Relationship to rlm-kit
+## Relationship to rlm-harness
 
-toolscout **vendors nothing** — it consumes rlm-kit's public surface (`RLMTask`, the trace schema, the
+toolscout **vendors nothing** — it consumes rlm-harness's public surface (`RLMTask`, the trace schema, the
 exporters, `make_model_tool`, `ClaudeAgentLM`) and extends it the sanctioned way: subclass `RLMTask`,
 add tools via the base/wrap split, read results through the trace. See [`VENDOR.md`](../VENDOR.md) for the
 full extension contract and the three sanctioned extension points.

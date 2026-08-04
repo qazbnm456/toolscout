@@ -1,6 +1,6 @@
 """L2 — offline INTEGRATION through the REAL dspy.RLM.aforward loop (no live model, no Deno, no network).
 
-Uses rlm-kit's `rlm_kit.testing` seam: a scripted DummyLM drives the planner, a `ScriptedInterpreter`
+Uses rlm-harness's `rlm_harness.testing` seam: a scripted DummyLM drives the planner, a `ScriptedInterpreter`
 runs each turn's step (dispatching the REAL injected meta-tools, so their tracing runs) and SUBMITs. This
 is the layer the unit tests can't reach — it exercises `planner → list_servers → load_server →
 describe_tools → call_tool → outcome → assemble → response` on a trace the real loop produced, and
@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import asyncio
 
-from rlm_kit import RLMConfig, TraceRecorder, configure
-from rlm_kit.testing import ScriptedInterpreter, call, scripted_lm, submit
-from rlm_kit.trace import load_events
+from rlm_harness import RLMConfig, TraceRecorder, configure
+from rlm_harness.testing import ScriptedInterpreter, call, scripted_lm, submit
+from rlm_harness.trace import load_events
 
 from toolscout.agent import SolveTask
 from toolscout.assemble import outcome_from_events

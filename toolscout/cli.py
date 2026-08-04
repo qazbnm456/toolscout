@@ -44,7 +44,7 @@ async def solve_task(
     `rubric` (a `RubricCriteria`) is carried in the trace as LABELS and drives the opt-in judge. Pass the
     ATLAS decomposition from `toolscout rubric` here so a live run's labels vary per task; None falls back
     to the deterministic `default_rubric` skeleton."""
-    import rlm_kit
+    import rlm_harness
 
     from .agent import SolveTask, setup
     from .rubric import default_rubric, rubric_to_meta
@@ -62,7 +62,7 @@ async def solve_task(
             solver.close()
 
     if trace_path:
-        with rlm_kit.TraceRecorder(trace_path, run_id=run_id, on_event=on_event, meta={
+        with rlm_harness.TraceRecorder(trace_path, run_id=run_id, on_event=on_event, meta={
             # The run's INITIAL STATE (the task is a REPL variable) + the prompt actually used.
             "task": task,
             "instructions": solver.instructions,
@@ -124,7 +124,7 @@ def run(
 
     `rubric` (a `RubricCriteria`, e.g. from `toolscout rubric`) is carried as run labels; None → the
     deterministic default skeleton."""
-    from rlm_kit.trace import load_events
+    from rlm_harness.trace import load_events
 
     from .assemble import outcome_from_events
     from .response import build_failed_response, build_response
@@ -177,7 +177,7 @@ def _cmd_solve(args) -> int:
 
 
 def _cmd_render(args) -> int:
-    from rlm_kit.trace import load_events
+    from rlm_harness.trace import load_events
 
     from .assemble import outcome_from_events
     from .render import render_response

@@ -32,8 +32,8 @@ def run_recorded(tmp_path, calls, outcome=None, *, run_id="t", task="add six and
     `calls` is a list of (tool_name, kwargs) dispatched through the REAL tools built over a fresh demo
     toolspace. `outcome` (a dict) is recorded as the result. `judge_events` is a list of payload dicts
     recorded as extra `tool_call`s (e.g. a rubric_judge event)."""
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     ts = ts if ts is not None else Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y"))
     tools = {t.__name__: t for t in build_toolspace_tools(ts)}

@@ -1,7 +1,7 @@
 """Map a toolscout trace event → a public SSE event (the single source of truth for the streamed event
 surface). Pure function, no web deps — unit-tested independently of the server.
 
-A trace event is `{type, step_id, ts, payload}` (rlm-kit's frozen trace/v1). We surface only the events a
+A trace event is `{type, step_id, ts, payload}` (rlm-harness's frozen trace/v1). We surface only the events a
 UI needs and rename them to a stable `task.<noun>.<verb>` vocabulary (OpenAI-Responses-flavored). Unknown
 / internal events return None (skipped). The full structured result is NOT streamed — the client GETs
 `/v1/runs/{run_id}` after `task.run.completed`.
@@ -11,7 +11,7 @@ The surfaced tools are toolscout's ISL/ITL/PTC meta-tools plus the opt-in judge 
 pull signatures), `call_tool` (PTC — invoke a materialized tool), `rubric_judge`, `read_skill`. A
 `call_tool` payload nests the invocation as `args = {tool, args}` alongside a top-level `server` +
 `ok`/`reason` + `result`/`error` (see `toolscout.toolspace`); a `sub_call` carries `input`/`processed`
-/`raw` (rlm-kit's sub-LM specialist escalation), not question/answer.
+/`raw` (rlm-harness's sub-LM specialist escalation), not question/answer.
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ def to_event(trace_event: dict) -> dict[str, Any] | None:
     if t == "run_end":
         return _ev("task.run.completed", {})          # the ONE terminal event
     if t == "final":
-        # A real finished trace holds BOTH `final` (from rlm-kit's record_main_trajectory) and `run_end`
+        # A real finished trace holds BOTH `final` (from rlm-harness's record_main_trajectory) and `run_end`
         # (from the recorder's __exit__). Mapping BOTH to the terminal event would emit
         # `task.run.completed` TWICE per replay — and the `final` copy lands BEFORE `result`, so a client
         # acting on the first `completed` fires before `task.result.done`. `run_end` is the canonical

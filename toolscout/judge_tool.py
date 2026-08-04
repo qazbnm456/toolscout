@@ -1,10 +1,10 @@
 """The OPT-IN rubric judge — a verify-before-finalize self-check, expressed as a TOOL-LM.
 
-A model that GRADES a trajectory against a rubric is an agentic JUDGEMENT, so per rlm-kit's structural
+A model that GRADES a trajectory against a rubric is an agentic JUDGEMENT, so per rlm-harness's structural
 rule it must be a TOOL the planner CHOOSES to call (recorded as a `tool_call`), never a sub-LM intercept
 (deterministic transforms only) and never an aggregated reward. `make_rubric_judge_tool` builds
-`rubric_judge` from a `chat_fn` via rlm-kit's `make_model_tool` (chat + transient-retry + validate +
-circuit-breaker) — the base/wrap split rlm-kit sanctions (a generic base in the kit; the provider here).
+`rubric_judge` from a `chat_fn` via rlm-harness's `make_model_tool` (chat + transient-retry + validate +
+circuit-breaker) — the base/wrap split rlm-harness sanctions (a generic base in the kit; the provider here).
 
 What it emits is the crux of holding ATLAS inside "trajectories, never reward": per-criterion
 OBSERVATIONS (a `note` + a boolean `met`) — LABELS, not scores. It never sums a weighted `dᵢ`, never
@@ -20,8 +20,8 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from rlm_kit.tools import make_model_tool
-from rlm_kit.trace import record_tool_call
+from rlm_harness.tools import make_model_tool
+from rlm_harness.trace import record_tool_call
 
 from .schema import Criterion
 

@@ -13,7 +13,7 @@ Two halves, both deterministic-friendly and dspy-free:
    evidence its category cares about (counts/ids pulled straight from the trace's tool_calls) — a FACT
    surface, not a judgement. `met`/`unmet`/reward is the trainer's (or the opt-in judge tool's) call.
 
-This is the crux of holding ATLAS (a TRAINING/RFT paper) inside rlm-kit's "trajectories, never reward"
+This is the crux of holding ATLAS (a TRAINING/RFT paper) inside rlm-harness's "trajectories, never reward"
 invariant: toolscout emits the rubric + the per-criterion facts as data; scoring stays downstream.
 """
 
@@ -22,19 +22,19 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 
-from rlm_kit.rubric import (  # the reward-free rubric PRIMITIVES (category-agnostic); wrapped below
+from rlm_harness.rubric import (  # the reward-free rubric PRIMITIVES (category-agnostic); wrapped below
     Criterion,
     CriterionFact,
     RubricCriteria,
     rubric_to_meta,  # noqa: F401 — re-exported (cli/rl_export/__init__ do `from .rubric import rubric_to_meta`)
 )
-from rlm_kit.rubric import (
+from rlm_harness.rubric import (
     criteria_facts as _kit_criteria_facts,
 )
-from rlm_kit.rubric import (
+from rlm_harness.rubric import (
     rubric_from_meta as _kit_rubric_from_meta,
 )
-from rlm_kit.rubric import (
+from rlm_harness.rubric import (
     validate_rubric as _kit_validate_rubric,
 )
 
@@ -108,7 +108,7 @@ def default_rubric(task: str = "") -> RubricCriteria:
 
 def rubric_from_meta(events: list[dict]) -> RubricCriteria:
     """Recover the rubric stored in a run's `run_start` meta (empty if none), filtered to toolscout's
-    ATLAS categories. Thin wrapper over rlm-kit's taxonomy-agnostic primitive."""
+    ATLAS categories. Thin wrapper over rlm-harness's taxonomy-agnostic primitive."""
     return _kit_rubric_from_meta(events, categories=CRITERION_CATEGORIES)
 
 
@@ -171,7 +171,7 @@ _OBSERVABLE_VOCAB = ("server", "tool", "load", "call", "arg", "answer", "describ
 
 def validate_rubric(rubric: RubricCriteria) -> list[str]:
     """A DETERMINISTIC structural lint of a rubric — NOT a semantic-quality judge — toolscout's ATLAS
-    category coverage + the observability heuristic. Thin wrapper over rlm-kit's primitive. Returns
+    category coverage + the observability heuristic. Thin wrapper over rlm-harness's primitive. Returns
     human-readable issues (empty list = clean). Deeper "is this rubric GOOD" validation needs the eval
     harness + a real training signal — out of scope here."""
     return _kit_validate_rubric(rubric, categories=CRITERION_CATEGORIES, observable_vocab=_OBSERVABLE_VOCAB)
@@ -182,7 +182,7 @@ def criteria_facts(events: list[dict], criteria: list[Criterion] | None = None) 
     falling back to `default_rubric()` when a trace carries none — SAFE because the skeleton is constant.
 
     Sources the facts from toolscout's OWN `trace_facts` and slices them through `_CATEGORY_LENS` via
-    rlm-kit's pure `criteria_facts` primitive. NEVER decides met/unmet or a score.
+    rlm-harness's pure `criteria_facts` primitive. NEVER decides met/unmet or a score.
     """
     if criteria is None:
         criteria = rubric_from_meta(events).criteria or default_rubric().criteria

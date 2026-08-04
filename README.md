@@ -1,6 +1,6 @@
 # toolscout
 
-**Solve a task over a LARGE MCP toolspace with a small planner — a traced [ATLAS](https://arxiv.org/html/2603.06713v1)-style rollout harness built on [rlm-kit](https://github.com/qazbnm456/rlm-kit).**
+**Solve a task over a LARGE MCP toolspace with a small planner — a traced [ATLAS](https://arxiv.org/html/2603.06713v1)-style rollout harness built on [rlm-harness](https://github.com/qazbnm456/rlm-harness).**
 
 https://github.com/user-attachments/assets/afa8fb71-8c41-4b47-acb8-9c4165345411
 
@@ -10,7 +10,7 @@ A small language model cannot hold the schemas of hundreds of tools in its conte
 Loading and Scoped Context, Microsoft Research) shows how to make it work anyway: let the model
 **discover** the toolspace progressively and **compute over tool results as code**. That method is general
 to any large toolspace — MCP is its testbed. toolscout implements the **rollout + evaluation** side of it
-as a downstream *consumer* of rlm-kit: it declares one `RLMTask`, adds four fixed meta-tools, and inherits
+as a downstream *consumer* of rlm-harness: it declares one `RLMTask`, adds four fixed meta-tools, and inherits
 the sandbox, tracing, retry, and dataset export from the kit. (The reward-composition + RFT *training* side
 is a separate project — see [the guide](toolscout/README.md#what-toolscout-implements--and-what-it-leaves-to-you).)
 
@@ -29,7 +29,7 @@ task ─▶ [planner (small LM) in a sandboxed REPL]
 
 ## Install & run
 
-toolscout uses [uv](https://docs.astral.sh/uv/). rlm-kit is pulled from git (pinned in `uv.lock`).
+toolscout uses [uv](https://docs.astral.sh/uv/). rlm-harness is pulled from git (pinned in `uv.lock`).
 
 ```bash
 uv sync                       # planner/specialist over an OpenAI-compatible proxy
@@ -96,16 +96,16 @@ behaviour but demonstrates nothing.)
 The deep documentation lives in [**`toolscout/README.md`**](toolscout/README.md):
 
 - [What ATLAS is — and what it isn't](toolscout/README.md#what-atlas-is--and-what-it-isnt) — not MCP-only, not only fine-tuning; the three separable pieces.
-- [The ATLAS mechanisms, mapped onto rlm-kit](toolscout/README.md#the-atlas-mechanisms-mapped-onto-rlm-kit) — ISL/ITL/PTC/scaffolding/rubric, and where each lives.
+- [The ATLAS mechanisms, mapped onto rlm-harness](toolscout/README.md#the-atlas-mechanisms-mapped-onto-rlm-harness) — ISL/ITL/PTC/scaffolding/rubric, and where each lives.
 - [What toolscout implements — and what it leaves to you](toolscout/README.md#what-toolscout-implements--and-what-it-leaves-to-you) — the done/deliberately-not-done boundary.
 - [Reproducing the ATLAS experiments](toolscout/README.md#reproducing-the-atlas-experiments) — what you get free vs. what you must bring (toolspace, tasks, reward function, RFT trainer).
 - [`trajectories, never reward`](toolscout/README.md#trajectories-never-reward) — how an RFT paper fits a rollout kit.
 - [The toolspace](toolscout/README.md#the-toolspace-external-mcp-servers), [model roles](toolscout/README.md#model-roles), [judgement-only SUBMIT](toolscout/README.md#judgement-only-submit--assemble-on-read), and [evaluation](toolscout/README.md#evaluation-toolscout-eval) — the operational surfaces.
 - [Layout](toolscout/README.md#layout) — what each module owns.
 
-## Relationship to rlm-kit
+## Relationship to rlm-harness
 
-toolscout **vendors nothing** — it consumes rlm-kit's public surface (`RLMTask`, the trace schema, the
+toolscout **vendors nothing** — it consumes rlm-harness's public surface (`RLMTask`, the trace schema, the
 exporters, `make_model_tool`, `ClaudeAgentLM`) and extends it the sanctioned way: subclass `RLMTask`,
 add tools via the base/wrap split, read results through the trace. See [`VENDOR.md`](VENDOR.md).
 
@@ -116,7 +116,7 @@ uvx ruff check .                         # lint (ruff defaults, line-length 110)
 uv run --group dev python -m pytest -q   # the package suite — fully offline (no model, no Deno, no network)
 ```
 
-dspy-bearing paths use `DummyLM` + rlm-kit's offline forward harness or skip; the toolspace defaults to the
+dspy-bearing paths use `DummyLM` + rlm-harness's offline forward harness or skip; the toolspace defaults to the
 built-in demo catalog. The `studio/` and `eval/` workspace members carry their own suites — see
 [`CLAUDE.md`](CLAUDE.md) for those commands and the invariants when editing.
 

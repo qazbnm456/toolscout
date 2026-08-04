@@ -26,8 +26,8 @@ So a handoff summary should carry the *in-flight session state* those files miss
    `rejected`; move durable ones to the issue tracker or the CHANGELOG `[Unreleased]` section.
 5. **The seams' status.** (a) the toolspace backend — demo catalog vs a live `McpCatalog` (and whether
    `connect="lazy"` was touched); (b) the opt-in `rubric_judge` — off vs enabled, and its endpoint; (c) the
-   subscription path — proxy-only vs a `claude-agent-sdk/` role; (d) the rlm-kit dep — still the
-   commit-pinned git source or overlaid editable (`../rlm-kit`).
+   subscription path — proxy-only vs a `claude-agent-sdk/` role; (d) the rlm-harness dep — still the
+   exact PyPI pin or overlaid editable (`../rlm-harness`).
    A resumed session must not re-open a seam that moved.
 6. **In-flight user intent + acceptance criteria** for this session. Without it a resumed session drifts.
 
@@ -44,7 +44,7 @@ So a handoff summary should carry the *in-flight session state* those files miss
 ## Session state
 - Goal: <one sentence>
 - Status: <what passes the suite, what doesn't, last command + result>
-- Seams: <toolspace backend | rubric_judge | subscription | rlm-kit dep — one line each if touched>
+- Seams: <toolspace backend | rubric_judge | subscription | rlm-harness dep — one line each if touched>
 
 ## Decisions
 - <decision> — <why>   (→ promote to CLAUDE.md invariant / CHANGELOG.md)

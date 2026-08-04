@@ -2,7 +2,7 @@
 
 All notable changes to toolscout. This project solves ONE task over a possibly LARGE MCP toolspace with a
 SMALL planner — an [ATLAS](https://arxiv.org/html/2603.06713v1)-style rollout harness on
-[`rlm-kit`](https://github.com/qazbnm456/rlm-kit): the planner DISCOVERS the toolspace progressively
+[`rlm-harness`](https://github.com/qazbnm456/rlm-harness): the planner DISCOVERS the toolspace progressively
 (Iterative Server/Tool Loading) and computes over tool results as code in a sandboxed persistent REPL
 (Programmatic Tool Calling), emits a judgement-only outcome whose evidence is re-sourced from the trace on
 read, and exports a REWARD-FREE trajectory dataset.
@@ -13,7 +13,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 ## [Unreleased]
 
 ### Fixed — an endpoint failure that stringified to nothing was counted as a judge decline
-`rlm-kit` pin `f217cfad` → `6d010447`. Upstream's `trace.payload_cause` documents itself as the
+`rlm-harness` pin `f217cfad` → `6d010447`. Upstream's `trace.payload_cause` documents itself as the
 read-side mirror of `ModelToolResult.cause`, and disagreed with it on the case that matters:
 the write side has always read `endpoint_error is not None`, the read side shipped as
 `endpoint_error or error`. They differ on the EMPTY STRING, which is the common case, not a corner
@@ -82,14 +82,14 @@ rubric criterion and a delivered report.
 
 ### Fixed
 
-- **The studio launches on a subscription with the SAME command as every rlm-kit sibling.** The studio
+- **The studio launches on a subscription with the SAME command as every rlm-harness sibling.** The studio
   member (`toolscout-studio`) was missing a forwarding `subscription` extra, so
   `uv run --package toolscout-studio --extra live --extra subscription uvicorn …` was rejected — a
   studio-scoped `uv` command resolves extras against the MEMBER, not the root, and the Claude Agent SDK
   extra lived only on the root. Added `subscription = ["toolscout[subscription]"]` to
   `studio/pyproject.toml` (mirroring the sibling harnesses) + a "Subscription mode" section to the studio
   README. Closes a latent cross-downstream drift (this was the same gap fixed in the siblings); the
-  paired-extras convention is now documented in rlm-kit's "Building a consumer" guide.
+  paired-extras convention is now documented in rlm-harness's "Building a consumer" guide.
 - **`cli.run` surfaces the chained cause on a failed run** (`cli.py`): a wrapped exception (e.g. an
   `RLMTaskError` that wraps the real `AdapterParseError`/endpoint error via `raise … from`) now appends
   `(caused by <Type>: <msg>)` to the response `error` string, so `output/responses/<run>.json` is
@@ -98,7 +98,7 @@ rubric criterion and a delivered report.
 ## [0.1.0] - 2026-07-19
 
 The initial public release: a task string in → a structured, grounded outcome over a large MCP toolspace
-out, recorded as a reward-free trajectory. The ATLAS approach mapped onto rlm-kit, fully offline-testable.
+out, recorded as a reward-free trajectory. The ATLAS approach mapped onto rlm-harness, fully offline-testable.
 
 ### Added
 
@@ -157,7 +157,7 @@ out, recorded as a reward-free trajectory. The ATLAS approach mapped onto rlm-ki
   deterministic per-criterion facts + the opt-in judge's observations) — all with `reward=None`. Reward,
   scoring, credit assignment, and GRPO/SFT live in a separate fine-tuning project.
 - **The opt-in `rubric_judge` tool** (`judge_tool.py`, OFF by default): a verify-before-finalize self-check
-  the planner CHOOSES to call, built on rlm-kit's `make_model_tool` (chat → transient-retry → validate →
+  the planner CHOOSES to call, built on rlm-harness's `make_model_tool` (chat → transient-retry → validate →
   circuit-break). It emits per-criterion OBSERVATIONS (a note + met/unmet) as labels, never an aggregate
   reward. Its endpoint is always a separate OpenAI-compatible client, never the subscription.
 - **Model ROLES by env** (`config.py`): planner (`TS_ROOT_LM`), specialist (`TS_SUB_LM`, reached via
@@ -166,7 +166,7 @@ out, recorded as a reward-free trajectory. The ATLAS approach mapped onto rlm-ki
   it rides in `run_start` meta so `render`/`export` re-derive the same `hit_iteration_cap`.
 - **Claude Pro/Max subscription support** (`agent._maybe_subscription_lm`, opt-in `[subscription]` extra):
   give the planner or specialist a `claude-agent-sdk/<id>` model to run it on a personal Claude login via
-  rlm-kit's `ClaudeAgentLM`, injected through `configure(main_lm=…, sub_lm=…)`. Imported lazily so a
+  rlm-harness's `ClaudeAgentLM`, injected through `configure(main_lm=…, sub_lm=…)`. Imported lazily so a
   proxy-only install never pulls the SDK. The judge may not use the sentinel — mixed auth by design; the
   guard fires only when the judge is actually ENABLED (`TS_ENABLE_JUDGE=1`), so a subscription
   planner+specialist with the judge off stays a valid config.
@@ -205,18 +205,18 @@ out, recorded as a reward-free trajectory. The ATLAS approach mapped onto rlm-ki
 - **`toolscout-eval` workspace member** — an OFFLINE, reward-free, 4-category (TF/TA/TG/PA) 0–10
   LLM-as-judge evaluation scorer reproducing ATLAS's evaluation methodology. It lives OUT of the toolscout
   wheel, is a one-way reader of the trace/`TaskResponse` contract (`toolscout` never imports it), reuses
-  `rlm_kit.tools.make_model_tool`, and emits a scorecard of per-category MEANS (TF primary) — never a
+  `rlm_harness.tools.make_model_tool`, and emits a scorecard of per-category MEANS (TF primary) — never a
   composite reward. Measurement flows trace → judge → report (terminal); it never feeds back into a
   trace/dataset/export. This is compatible with "trajectories, never reward" precisely because the paper
   itself mandates the eval judge be separate from the training reward.
-- **Offline CI-ready test posture**: dspy-bearing paths use `DummyLM` + rlm-kit's `ScriptedInterpreter`;
+- **Offline CI-ready test posture**: dspy-bearing paths use `DummyLM` + rlm-harness's `ScriptedInterpreter`;
   MCP paths use in-process fakes; the demo catalog needs no network. Two gates — `uvx ruff check .`
   (line-length 110) and `uv run --group dev python -m pytest -q` — plus the studio's and eval's own suites.
 
 ### Documentation
 
-- **A lean top-level `README.md` + a deep `toolscout/README.md` guide** (mirroring rlm-kit's
-  `README.md` / `rlm_kit/README.md` split). The overview covers what it is, install, run, capability
+- **A lean top-level `README.md` + a deep `toolscout/README.md` guide** (mirroring rlm-harness's
+  `README.md` / `rlm_harness/README.md` split). The overview covers what it is, install, run, capability
   bullets, and deep-links; the guide holds the reference — including **"What ATLAS is — and what it
   isn't"** (ATLAS is not MCP-specific — MCP is its testbed, and the method generalizes to any large
   toolspace — and not only fine-tuning: three separable pieces, the inference architecture, the rubric/

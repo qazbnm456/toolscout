@@ -1,32 +1,32 @@
 # Vendored / external dependencies
 
 toolscout deliberately vendors **nothing**. It is a downstream *consumer* of
-[`rlm-kit`](https://github.com/qazbnm456/rlm-kit): it consumes the kit's PUBLIC surface and extends it the
+[`rlm-harness`](https://github.com/qazbnm456/rlm-harness): it consumes the kit's PUBLIC surface and extends it the
 sanctioned way — it never forks the harness, never re-implements tracing, and never copies kit source into
 this tree.
 
-## What it consumes from rlm-kit (public surface only)
+## What it consumes from rlm-harness (public surface only)
 
 - **`RLMTask`** — subclassed once as `SolveTask` (declaration: `signature` / `output_field` /
   `output_model` / `instructions` / `tools`). Retry, validation, sandbox selection, and budget caps are
   inherited.
 - **`configure` / `RLMConfig`** — the process-level wiring seam (`agent.setup`), including the
   `main_lm=` / `sub_lm=` injection points.
-- **The trace schema (`trace/v1`)** and `rlm_kit.trace` helpers (`record_tool_call`, `load_events`,
+- **The trace schema (`trace/v1`)** and `rlm_harness.trace` helpers (`record_tool_call`, `load_events`,
   `group_by_run`, `EVENT_*`) — toolscout reads and writes the kit's wire format additively, never a fork
   of it.
-- **The exporters** (`rlm_kit.dataset.export_actions` / `export_sft_turns`) — the reward-free dataset is
+- **The exporters** (`rlm_harness.dataset.export_actions` / `export_sft_turns`) — the reward-free dataset is
   built on these, with `reward=None`.
-- **`make_model_tool`** (`rlm_kit.tools`) — the generic chat → transient-retry → validate → circuit-break
+- **`make_model_tool`** (`rlm_harness.tools`) — the generic chat → transient-retry → validate → circuit-break
   base; the opt-in `rubric_judge` is toolscout's wrap over it (the base/wrap split — provider + validator +
   tracing here).
 - **The skills loader** (`load_skills_as_tools` / `render_skills_manifest`) — progressive-disclosure
   tactics KB, knowledge-only.
 - **The sub-LM tracing seam** (`intercept_sub_lm` / `get_sub_lm`) — the specialist is intercepted for
   tracing only.
-- **`ClaudeAgentLM`** (optional `rlm-kit[subscription]`) — used to run the planner/specialist on a Claude
+- **`ClaudeAgentLM`** (optional `rlm-harness[subscription]`) — used to run the planner/specialist on a Claude
   Pro/Max subscription; imported lazily, injected through `configure(main_lm=…, sub_lm=…)`. Not vendored —
-  it ships in the rlm-kit wheel.
+  it ships in the rlm-harness wheel.
 
 ## The three sanctioned extension points (and only these)
 
@@ -36,17 +36,17 @@ this tree.
 3. **Read results through the trace + exporters** — `assemble.py` re-sources facts from the trace;
    `rl_export.py` builds the dataset; `render.py` renders it. Never reach into a kit `_private` name.
 
-Contrast with a hypothetical fork: copying rlm-kit's harness/tracing into this repo to tweak it would
+Contrast with a hypothetical fork: copying rlm-harness's harness/tracing into this repo to tweak it would
 duplicate the wire format, drift from the kit's invariants, and forfeit the ability to upstream fixes.
-Instead, when a real seam is missing, toolscout adds a NAMED hook in rlm-kit and consumes it.
+Instead, when a real seam is missing, toolscout adds a NAMED hook in rlm-harness and consumes it.
 
-## How rlm-kit is pinned
+## How rlm-harness is pinned
 
-rlm-kit is public but not yet on PyPI, so it comes in via a **commit-pinned git source**
+rlm-harness comes from PyPI as an **exact version pin**
 (`[tool.uv.sources]` → GitHub, `branch = "main"`; `uv.lock` pins the exact commit). Never `pip install`
 it. When co-developing the kit locally, overlay an **editable**
-install (`uv pip install -e ../rlm-kit`) or bump the pinned ref after pushing, so a fix that surfaces here
-can be promoted into the kit. Swap to a version spec once rlm-kit ships on PyPI.
+install (`uv pip install -e ../rlm-harness`) or bump the pinned ref after pushing, so a fix that surfaces here
+can be promoted into the kit. Swap to a version spec once rlm-harness ships on PyPI.
 
 ## External boundaries toolscout crosses (all opt-in, none bundled)
 

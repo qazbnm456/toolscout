@@ -1,6 +1,6 @@
-"""The external eval judge — ATLAS's 4-category 0-10 LLM-as-judge, built on `rlm_kit.tools.make_model_tool`.
+"""The external eval judge — ATLAS's 4-category 0-10 LLM-as-judge, built on `rlm_harness.tools.make_model_tool`.
 
-Same base/wrap split as toolscout's in-run `rubric_judge` (`judge_tool.py`): rlm-kit owns the generic
+Same base/wrap split as toolscout's in-run `rubric_judge` (`judge_tool.py`): rlm-harness owns the generic
 chat -> transient-retry -> validate -> circuit-breaker core; this module supplies the chat closure, the
 generic ATLAS eval prompt, and the strict 0-10 validator. It differs from `rubric_judge` on purpose:
 
@@ -23,7 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from rlm_kit.tools import make_model_tool
+from rlm_harness.tools import make_model_tool
 
 from .schema import CATEGORIES, EvalScore
 

@@ -1,6 +1,6 @@
 """McpCatalog — the toolspace backed by EXTERNAL MCP servers (the live, non-demo path).
 
-A thin adapter over rlm-kit's public `rlm_kit.mcp.McpCatalog` (its multi-server MCP transport). The
+A thin adapter over rlm-harness's public `rlm_harness.mcp.McpCatalog` (its multi-server MCP transport). The
 kit owns the load-bearing mechanics — the per-server async→sync bridge, the connect lifecycle, the
 partial-eager-connect cleanup, and the per-call timeout+cancel; toolscout maps the kit's RAW MCP
 tools onto its own scaffolded `ToolSpec`/`Param` shape and disperses the ISL/ITL/PTC surface:
@@ -9,7 +9,7 @@ tools onto its own scaffolded `ToolSpec`/`Param` shape and disperses the ISL/ITL
 - ITL: `describe(names)` returns the scaffolded `ToolSpec`s of already-materialized tools.
 - PTC: `call(server, tool, args)` dispatches via the kit and returns the flattened result TEXT.
 
-Earlier this module hand-copied rlm-kit's single-server bridge, because the kit only exposed a PRIVATE
+Earlier this module hand-copied rlm-harness's single-server bridge, because the kit only exposed a PRIVATE
 `_MCPBridge` and a `dspy.Tool`-shaped `mcp_tools` (the wrong shape for a MANY-server progressive
 catalog). The kit now ships a public, multi-server `McpCatalog` (a raw-tool transport that records
 nothing), so this drops the copied bridge and keeps only the scaffolding MAPPING (raw MCP `Tool` →
@@ -29,7 +29,7 @@ SECURITY: MCP servers execute HOST-SIDE (outside the sandbox); a stdio server is
 Treat the server as a TRUSTED dependency and its output as UNTRUSTED LM context (a prompt-injection
 surface, like a fetched page) — the scaffolding layer length-caps what enters the planner's REPL.
 
-dspy-free (uses only `rlm_kit.mcp` + stdlib; the kit pulls the mcp SDK lazily on connect); imported
+dspy-free (uses only `rlm_harness.mcp` + stdlib; the kit pulls the mcp SDK lazily on connect); imported
 LAZILY by `catalog.load_catalog` only when a real toolspace is configured, so `import toolscout` and
 the offline tests never pull the mcp SDK.
 """
@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from rlm_kit.mcp import McpCatalog as _KitMcpCatalog
+from rlm_harness.mcp import McpCatalog as _KitMcpCatalog
 
 from .catalog import Catalog, Param, ServerInfo, ToolSpec
 
@@ -86,7 +86,7 @@ def _returns_from_schema(output_schema: Any) -> str:
 
 
 class McpCatalog(Catalog):
-    """A `Catalog` over external MCP servers — a thin adapter mapping rlm-kit's `McpCatalog` (the
+    """A `Catalog` over external MCP servers — a thin adapter mapping rlm-harness's `McpCatalog` (the
     raw-tool transport) onto toolscout's scaffolded `ToolSpec` surface. The kit owns spec validation,
     connect lifecycle, and hang-safety; this maps its raw MCP `Tool`s to `ToolSpec`/`Param` and
     delegates the rest."""

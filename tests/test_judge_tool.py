@@ -20,8 +20,8 @@ def test_parse_judge_json_valid_and_invalid():
 
 
 def test_rubric_judge_records_observations(tmp_path):
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     criteria = default_rubric("do a thing").criteria
 
@@ -43,7 +43,7 @@ def test_rubric_judge_records_observations(tmp_path):
 
 
 def test_rubric_judge_handles_unusable_reply(tmp_path):
-    from rlm_kit import TraceRecorder
+    from rlm_harness import TraceRecorder
 
     tool = make_rubric_judge_tool(_cfg(), default_rubric("t").criteria, chat_fn=lambda _p: "garbage")
     with TraceRecorder(str(tmp_path / "r.jsonl"), run_id="r", meta={"task": "t"}):

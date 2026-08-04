@@ -19,7 +19,7 @@ so labels read facts too. Pure stdlib + pydantic; no dspy.
 
 from __future__ import annotations
 
-from rlm_kit.trace import CAUSE_OK, EVENT_RESULT, payload_cause
+from rlm_harness.trace import CAUSE_OK, EVENT_RESULT, payload_cause
 
 from . import rubric as rubric_mod
 from .schema import AssembledOutcome, Criterion, TaskOutcome
@@ -51,7 +51,7 @@ def _judge_observations(events: list[dict], judge_call_id: str | None) -> list[d
         # endpoint failure, or a circuit break — and the last two carry no `observations`. Taking
         # `judges[-1]` blindly meant one flaky final call blanked a successful earlier judge, which
         # then flipped `judge_ran` to False in the dataset and dropped the "rubric judge ran" chip
-        # in the studio. `rlm_kit.trace.payload_cause` names the three.
+        # in the studio. `rlm_harness.trace.payload_cause` names the three.
         produced = [e for e in judges
                     if payload_cause(e["payload"] or {}) == CAUSE_OK
                     and isinstance((e["payload"] or {}).get("observations"), list)]

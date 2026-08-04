@@ -67,8 +67,8 @@ def test_repeat_call_guard_refuses_identical_args(tmp_path):
     """The PTC repeat guard: past max_repeat_calls IDENTICAL dispatches, call_tool refuses with guiding
     TEXT (pre-dispatch, reason="repeat_call") — an unconscious re-fetch loop breaks instead of storming
     the backend. The key is the COERCED args in canonical JSON, so dict key order must not matter."""
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     path = str(tmp_path / "r.jsonl")
     with TraceRecorder(path, run_id="r"):
@@ -95,7 +95,7 @@ def test_repeat_call_guard_key_never_raises():
     arbitrary planner dict through coercion untouched, and json.dumps(sort_keys=True) TypeErrors on
     mixed-type nested keys, ValueErrors on circular values, RecursionErrors on pathological nesting —
     each must fall back, and identical dicts must still share a key. (Scope note: this pins the key
-    helper only. Serializing such exotic args in the trace RECORD is a separate, pre-existing rlm-kit
+    helper only. Serializing such exotic args in the trace RECORD is a separate, pre-existing rlm-harness
     gap — a raise-proof serialize belongs in the kit's TraceRecorder, not here.)"""
     from toolscout.toolspace import _args_key, _canonical_args
 
@@ -129,8 +129,8 @@ def test_describe_respects_batch_cap():
 
 
 def test_meta_tools_record_tool_calls(tmp_path):
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     ts = Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y"))
     tools = {t.__name__: t for t in build_toolspace_tools(ts)}
@@ -150,8 +150,8 @@ def test_meta_tools_record_tool_calls(tmp_path):
 
 
 def test_call_tool_failure_records_reason(tmp_path):
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     ts = Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y"))
     tools = {t.__name__: t for t in build_toolspace_tools(ts)}
@@ -169,8 +169,8 @@ def test_call_tool_failure_records_reason(tmp_path):
 def test_proxy_call_matches_direct_call_payload(tmp_path):
     import json
 
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     from toolscout.scaffolding import PROXY_SOURCE
 
@@ -197,8 +197,8 @@ def test_proxy_call_matches_direct_call_payload(tmp_path):
 def test_load_server_proxy_hint_rides_output_once(tmp_path):
     import json
 
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     path = str(tmp_path / "r.jsonl")
     with TraceRecorder(path, run_id="r"):
@@ -214,8 +214,8 @@ def test_load_server_proxy_hint_rides_output_once(tmp_path):
 # ---- (iv) observed-example disclosure ----
 
 def test_describe_tools_discloses_observed_example(tmp_path):
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     path = str(tmp_path / "r.jsonl")
     with TraceRecorder(path, run_id="r"):
@@ -235,8 +235,8 @@ def test_describe_tools_discloses_observed_example(tmp_path):
 # ---- (D) a lazy connect failure surfaces as fixable TEXT, never a raise into the loop ----
 
 def test_load_server_surfaces_connect_error_as_text(tmp_path):
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     from toolscout.catalog import Catalog, ServerInfo
 
@@ -274,8 +274,8 @@ def test_load_server_surfaces_connect_error_as_text(tmp_path):
 def test_load_server_connect_error_text_is_capped(tmp_path):
     # a server-authored error message is UNTRUSTED LM context — a huge one must be length-capped in
     # BOTH the returned text and the recorded `error` payload, never flooded verbatim into the prompt.
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     from toolscout.catalog import Catalog, ServerInfo
 

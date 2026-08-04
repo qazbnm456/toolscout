@@ -20,8 +20,8 @@ def record_run(tmp_path, calls, outcome=None, *, run_id="t", task="what is 6 tim
     `calls` is a list of (tool_name, kwargs) dispatched through the real ISL/ITL/PTC tools over a fresh
     demo toolspace. `outcome` (a dict) is recorded as the result event; None leaves the run
     never-finalized. The trace lands at `tmp_path/<run_id>.jsonl`."""
-    from rlm_kit import TraceRecorder
-    from rlm_kit.trace import load_events
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import load_events
 
     toolspace = Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y"))
     tools = {t.__name__: t for t in build_toolspace_tools(toolspace)}

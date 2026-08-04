@@ -33,7 +33,7 @@ import hashlib
 import json
 from collections.abc import Callable
 
-from rlm_kit.trace import record_tool_call
+from rlm_harness.trace import record_tool_call
 
 from . import scaffolding
 from .catalog import Catalog
@@ -267,7 +267,7 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, dict | None], obje
         native = to_native(result)
         capped = _cap_result(native)
         ts._observed[(server, tool)] = capped   # cache the (capped) result as an ITL example, this run
-        # Record under BOTH `result` (toolscout's canonical read key) and `raw` (what rlm-kit's generic
+        # Record under BOTH `result` (toolscout's canonical read key) and `raw` (what rlm-harness's generic
         # export_actions reads for a tool action's outcome.output) — so the PTC action dataset carries the
         # tool's output, the TG/PA grounding signal. Same value; additive within trace/v1.
         record_tool_call("call_tool", args={"tool": tool, "args": coerced}, server=server, ok=True,

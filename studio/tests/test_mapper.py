@@ -26,7 +26,7 @@ def test_main_step_is_a_plan_step():
 
 
 def test_sub_call_is_a_specialist_escalation_with_input_processed_keys():
-    # rlm-kit's sub-LM records input / processed / raw — NOT question/answer.
+    # rlm-harness's sub-LM records input / processed / raw — NOT question/answer.
     ev = to_event({"type": "sub_call", "payload": {"input": "which server?", "processed": "the math one"}})
     assert ev["event"] == "task.specialist.escalation"
     assert ev["data"] == {"question": "which server?", "answer": "the math one"}

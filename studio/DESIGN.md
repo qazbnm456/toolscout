@@ -155,7 +155,7 @@ order:
 
 ### 5.7 Trajectory drawer (bottom sheet)
 Replays a finished run turn by turn — `GET /v1/runs/{id}/iterations`. Opened by a `▤ Trajectory` handle
-once a run is on screen. Built on rlm-kit's `trace/v1` contract (additive-only within v1, so it degrades
+once a run is on screen. Built on rlm-harness's `trace/v1` contract (additive-only within v1, so it degrades
 gracefully on older traces). Tool timeline (segment width ∝ `duration_s`, colored by family
 list/load/describe/call/judge/skill/specialist), left nav of turns, a detail pane (Init → the task +
 instructions + model roles + toolspace + budgets + rubric count; a turn → reasoning + REPL; a tool → its

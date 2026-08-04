@@ -1,11 +1,11 @@
 """McpCatalog — the external-MCP toolspace ADAPTER, tested OFFLINE with a fake kit catalog.
 
-toolscout's `McpCatalog` is now a thin adapter over rlm-kit's `rlm_kit.mcp.McpCatalog` (the transport,
+toolscout's `McpCatalog` is now a thin adapter over rlm-harness's `rlm_harness.mcp.McpCatalog` (the transport,
 which the kit tests against a REAL server). What's toolscout's OWN here is the scaffolding MAPPING —
 `_params_from_schema`, and raw MCP `Tool` → `ToolSpec` in `describe` / tuple → `ServerInfo` in
 `servers` — plus faithful delegation of the ISL surface. Those are exercised by injecting a fake kit
 catalog; the connect lifecycle, partial-eager teardown, and per-call hang-safety live in the kit and
-are tested there (`rlm-kit`'s `tests/test_mcp.py`).
+are tested there (`rlm-harness`'s `tests/test_mcp.py`).
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def _greet_tool():
 
 
 class _FakeKitCatalog:
-    """Stands in for `rlm_kit.mcp.McpCatalog` (the transport), so the adapter is tested OFFLINE — no
+    """Stands in for `rlm_harness.mcp.McpCatalog` (the transport), so the adapter is tested OFFLINE — no
     real MCP server. Mirrors the kit's contract closely enough to drive the adapter: name/connect
     validation, eager connect + partial teardown, and the servers/tools/call surface it maps."""
 

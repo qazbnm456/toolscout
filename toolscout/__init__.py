@@ -1,6 +1,6 @@
 """toolscout — solve a task over a LARGE MCP toolspace with a small planner, as a traced RLM harness.
 
-A downstream *consumer* of rlm-kit (git dep, editable for co-dev) implementing the ATLAS approach
+A downstream *consumer* of rlm-harness (git dep, editable for co-dev) implementing the ATLAS approach
 (Iterative Server/Tool Loading + Programmatic Tool Calling + rubric decomposition): a small planner
 DISCOVERS a big toolspace progressively through four fixed meta-tools, computes over tool results as code
 in the sandboxed REPL, and emits a judgement-only structured outcome whose heavy facts are re-sourced from
