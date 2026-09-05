@@ -2071,15 +2071,15 @@ wheels = [
 
 [[package]]
 name = "rlm-harness"
-version = "1.10.1"
+version = "1.10.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dspy" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a9/bf/c2b5fc11277379f76f7200d47e4a96d34bb4ad5eccc4ea4ee3fd85b66883/rlm_harness-1.10.1.tar.gz", hash = "sha256:9bed76ea1f117e5fba4528fcc231ced540d7e5d2cd0c3e90fba5cdb4f5983520", size = 693369, upload-time = "2026-09-05T09:42:55.971Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/7c/6e6963300ad8e723c661ffdbd76aaa7c317399d15577fd8104b94ceb1da4/rlm_harness-1.10.2.tar.gz", hash = "sha256:d35283b430877a8a3f6c9f6acf64996ed3a1d4c3d755c61af0157c68db86a5ab", size = 700443, upload-time = "2026-09-05T12:36:40.135Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/85/1e5a463413457a69ebb5904fa87314995a6f54694357c328309cc13251f6/rlm_harness-1.10.1-py3-none-any.whl", hash = "sha256:1c1c78ae227980e2459156efb403cc46066c1d40b14e17ec13f99b81beedc8cf", size = 277913, upload-time = "2026-09-05T09:42:54.667Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/ff/9d79b5dccbcaa5bb4a0b864979a8900433b2bcfe2ba33ceb1b867e30564e/rlm_harness-1.10.2-py3-none-any.whl", hash = "sha256:6a8b5cf677a185878388e65670096b879447c157f7c13e8d88a792a249cc6e00", size = 281075, upload-time = "2026-09-05T12:36:38.474Z" },
 ]
 
 [[package]]
@@ -2332,7 +2332,7 @@ wheels = [
 
 [[package]]
 name = "toolscout"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "mcp" },
@@ -2369,7 +2369,7 @@ requires-dist = [
     { name = "openai", marker = "extra == 'judge'", specifier = ">=1.0" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'observe'", specifier = ">=0.1.36" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "rlm-harness", specifier = "==1.10.1" },
+    { name = "rlm-harness", specifier = "==1.10.2" },
 ]
 provides-extras = ["judge", "observe", "subscription"]
 

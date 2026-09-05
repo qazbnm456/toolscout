@@ -12,6 +12,67 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-05
+
+### Changed — the harness dependency is `rlm-harness` from PyPI, pinned exactly
+The upstream kit was renamed `rlm-kit` → `rlm-harness` before its first publish (distribution, GitHub
+repository, and import name `rlm_harness` moved together), and toolscout now depends on it from PyPI —
+`rlm-harness==1.10.2` — instead of a git-commit override in `[tool.uv.sources]`. A plain
+`pip install toolscout` / `uv sync` is self-contained; no sibling checkout, no git source. The exact pin
+states which upstream contract this consumer was verified against (the kit is SemVer-stable since 1.0.0).
+The lint gate pins `ruff 0.16.0` (`uvx ruff@0.16.0`, see CI) so a ruff release cannot turn the gate red
+on its own.
+
+### Fixed — under MCP SDK 2.0 a FAILED MCP tool call read as a SUCCESS (kit side)
+`rlm-harness` pin `1.0.0` → `1.10.2` (and `dspy` `3.2.1` → `3.3.1` with it; `mcp` stays at the locked
+`1.28.1`). MCP SDK 2.0 renamed
+`CallToolResult.isError` → `is_error` and `.structuredContent` → `structured_content`, keeping the old
+names only as pydantic serialization aliases. A 1.0.0 kit read the camelCase names directly, so against
+a 2.x SDK every failed `call_tool` would have surfaced to the planner as a success — an INVERTED signal,
+silently, across the whole toolspace, in exactly the `tool_call` events the trajectories are made of.
+This project declares `mcp>=1.0` uncapped; the only thing keeping it on 1.x was `uv.lock` (`mcp 1.28.1`,
+unchanged by this bump), so a lock regeneration was all that stood between it and success-on-failure.
+
+Kit 1.5.0 reads BOTH shapes (`mcp._sdk_field`) and logs a one-shot warning when it finds neither, rather
+than defaulting — the protection now lives in code instead of in a pinned transitive. Nothing here
+hand-reads those fields (the two `.content` reads in `judge_tool.py` / `cli.py` are OpenAI chat
+completions), so the exposure was entirely inside the kit and is now closed.
+
+Also gained, all ADDITIVE within `trace/v1` and written by the kit without local code: `tool_call`
+`duration_s` is filled automatically (1.8.3) for any tool whose recorded name matches its function's
+`__name__` — the four meta-tools pin theirs, so it applies; `run_start` carries `rlm_harness` (the kit
+version, since 1.6.0); `run_end` carries `error_chain` (1.8.4) and `budgets` / `usage` (1.10.0), the applied
+token caps and per-attempt token counts, recorded even for a run that raised.
+
+Export trap to carry: traces recorded before this bump have no `run_start.rlm_harness`. Never average a
+rate across that boundary — a field added after an upgrade reads 100% on new runs and 0% on old ones,
+which is corpus composition, not a property of the code. Split on that field before computing anything.
+
+No local code changed; all three suites (package, studio, eval) and ruff pass unchanged, and the bump was
+verified LIVE on 2026-09-05 against the real two-server toolspace (`hibp` + `securitycontext`, planner and
+specialist on the subscription path): `status=ok`, both servers and all three tools trace-backed, no
+`unbacked_*`, an offline `render` of that trace re-derives the identical outcome, and a mixed export (five
+pre-1.6.0 traces + the new one) stays `reward=None`.
+
+The last step of that move, `1.10.1` → `1.10.2`, is the kit fix for a defect the `1.10.1` live run here
+surfaced in `run_end.usage` on the `claude-agent-sdk/` subscription path: the adapter mapped
+`result.usage["input_tokens"]` alone onto `prompt_tokens`, and that field is only the part of the prompt
+neither written to nor read from the cache — the Agent SDK caches the system prompt and tool definitions,
+so a whole RLM turn's prompt lands in `cache_creation_input_tokens` / `cache_read_input_tokens` instead.
+Measured with a two-call probe through the adapter (~2k-token prompt): under `1.10.1`, `input_tokens=2`
+beside `cache_creation=2047` on first sight and `cache_read=2047` on the repeat, recorded as
+`prompt_tokens=2`; under `1.10.2` the same probe records `prompt_tokens=2136` on both calls (2 + 2134,
+the split moving from creation to read, the sum unchanged), and a second live two-server run under `1.10.2`
+(`status=ok`, everything trace-backed, offline `render` identical) records `prompt_tokens` in the thousands
+per planner CALL. Read it per call, not per turn: with structured output requested the adapter lets the SDK
+spend up to 8 internal validation rounds, and `result.usage` is their SUM, so a call that needed several
+rounds reports a multiple of its context. On that run the first five calls grow smoothly with the REPL
+context (7180 → 10591) and the SUBMIT call reports 91514 beside a 9x jump in completion tokens — a
+multi-round aggregate, not one context size; the trace does not carry the round count that would
+decompose it. The number is a SIZE, not a cost basis — the
+three fields bill at different rates — and toolscout reads none of it; it is an optional kit-written
+`run_end` field. Reported upstream with the raw dump; the fix's tests assert on those measured dicts.
+
 ### Fixed — an endpoint failure that stringified to nothing was counted as a judge decline
 `rlm-harness` pin `f217cfad` → `6d010447`. Upstream's `trace.payload_cause` documents itself as the
 read-side mirror of `ModelToolResult.cause`, and disagreed with it on the case that matters:
