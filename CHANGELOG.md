@@ -12,6 +12,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Changed — `rlm-harness` pin `1.10.2` → `1.11.0` (`api_rounds` on subscription-path usage)
+MINOR upstream, additive within `trace/v1`, no local code change. On the `claude-agent-sdk/` path a
+`run_end.usage.calls[<model>][i]` entry may now carry `api_rounds: {"rounds": [...]}` — the SDK's
+per-sampling-iteration usage, verbatim, present only when the provider reported a non-empty list. Read it
+for the CONTEXT WINDOW size (the last entry whose `type` is `message` or `fallback_message`, never a
+`compaction` entry, which reports the summarisation cost rather than the context it closed). It does NOT
+decompose the call: a call's token fields accumulate across every API request it made while the rounds
+cover only the last request, and a `compaction` round is excluded from the top-level fields, so summing
+rounds never reconstructs `prompt_tokens`. Read it from the per-call entries only, never through dspy's
+`get_total_tokens()` (the wrapper dict exists so that aggregator no longer raises on it). toolscout reads
+none of it. Verified on the adapter probe and on a live two-server run under `1.11.0`
+(`status=ok`, everything trace-backed, offline `render` identical, a mixed export of eight traces spanning
+four kit versions stays `reward=None`): all eight planner calls carry exactly one `type="message"`
+round, and the context size read from it equals that call's `prompt_tokens` on every call (7180 → 14009)
+— the one-request, one-iteration case where the totals already are the context. No `compaction`,
+`fallback_message`, or multi-entry list observed; short calls do not produce them. Gates unchanged: ruff
+clean; package 119, studio 52 + 1 skipped, eval 39.
+
 ## [0.2.1] - 2026-09-05
 
 ### Changed — the harness dependency is `rlm-harness` from PyPI, pinned exactly

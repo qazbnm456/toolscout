@@ -10,7 +10,7 @@ authors = [{ name = "Boik Su" }]
 keywords = ["rlm", "dspy", "mcp", "tool-use", "agent", "reinforcement-learning", "toolspace", "atlas"]
 dependencies = [
     # Pinned exactly: 1.0.0 freezes the kit's public surface under SemVer.
-    "rlm-harness==1.10.2",
+    "rlm-harness==1.11.0",
     "pydantic>=2.0",
     # The toolspace is MCP: the ISL/ITL layer connects to external MCP servers (client-only).
     "mcp>=1.0",
