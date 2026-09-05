@@ -12,6 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-05
+
 ### Changed — `rlm-harness` pin `1.10.2` → `1.11.0` (`api_rounds` on subscription-path usage)
 MINOR upstream, additive within `trace/v1`, no local code change. On the `claude-agent-sdk/` path a
 `run_end.usage.calls[<model>][i]` entry may now carry `api_rounds: {"rounds": [...]}` — the SDK's
