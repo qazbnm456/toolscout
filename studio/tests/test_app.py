@@ -286,3 +286,95 @@ def test_frontend_shell_and_assets_are_served_and_revalidate():
         resp = client.get(f"/static/{asset}")
         assert resp.status_code == 200 and resp.headers.get("cache-control") == "no-cache"
     assert client.get("/v1/runs/does-not-exist").status_code == 404   # static mount did not shadow the API
+
+
+# ---- replay SSE: causal order (ts), not write order (step_id) ----
+
+def _event_names(body: str) -> list[str]:
+    return [line.split(": ", 1)[1] for line in body.splitlines() if line.startswith("event: ")]
+
+
+def _write_order_trace(with_ts: bool = True):
+    # WRITE order (step_id): the three tool calls land first (1-3), then rlm-harness flushes the whole
+    # trajectory with trailing ids (4-5), then run_end. CAUSAL order (ts): turn 0 → two tool calls → turn 1 →
+    # one tool call → end. A live main_step ts is stamped when its reasoning is parsed, so it interleaves.
+    ev = [
+        {"type": "run_start", "step_id": 0, "ts": 0.5, "payload": {"meta": {"planner": "P", "task": "t"}}},
+        {"type": "tool_call", "step_id": 1, "ts": 2.0, "payload": {
+            "tool": "load_server", "args": {"server": "math"}, "server": "math", "ok": True}},
+        {"type": "tool_call", "step_id": 2, "ts": 3.0, "payload": {
+            "tool": "load_server", "args": {"server": "text"}, "server": "text", "ok": True}},
+        {"type": "tool_call", "step_id": 3, "ts": 5.0, "payload": {
+            "tool": "load_server", "args": {"server": "web"}, "server": "web", "ok": True}},
+        {"type": "main_step", "step_id": 4, "ts": 1.0, "payload": {"turn": 0, "reasoning": "a", "code": "c"}},
+        {"type": "main_step", "step_id": 5, "ts": 4.0, "payload": {"turn": 1, "reasoning": "b", "code": "c"}},
+        {"type": "run_end", "step_id": 6, "ts": 6.0, "payload": {}},
+    ]
+    if not with_ts:
+        for e in ev:
+            e.pop("ts", None)
+    return ev
+
+
+def test_replay_interleaves_turns_and_tool_calls_causally(tmp_path, monkeypatch):
+    # The replay must stream the run as it HAPPENED: think → act → think → act. Sorting by step_id
+    # (write order) would stream all three tool calls first and both reasoning turns after them.
+    _write_trace(tmp_path, _write_order_trace())
+    monkeypatch.setattr(appmod, "ARTIFACTS", tmp_path)
+    with client.stream("GET", "/v1/runs/r/events") as resp:
+        body = "".join(resp.iter_text())
+    names = [n for n in _event_names(body) if n in ("task.plan.step", "task.server.loaded")]
+    assert names == ["task.plan.step", "task.server.loaded", "task.server.loaded",
+                     "task.plan.step", "task.server.loaded"]
+    assert _event_names(body)[0] == "task.run.created" and _event_names(body)[-1] == "task.run.completed"
+
+
+def test_replay_falls_back_to_step_order_without_ts(tmp_path, monkeypatch):
+    # A trace whose events carry no numeric ts (a fixture, a pre-ts trace) has only one order: write order.
+    # A partial ts sort would be neither order, so the fallback is all-or-nothing.
+    _write_trace(tmp_path, _write_order_trace(with_ts=False))
+    monkeypatch.setattr(appmod, "ARTIFACTS", tmp_path)
+    with client.stream("GET", "/v1/runs/r/events") as resp:
+        body = "".join(resp.iter_text())
+    names = [n for n in _event_names(body) if n in ("task.plan.step", "task.server.loaded")]
+    assert names == ["task.server.loaded"] * 3 + ["task.plan.step"] * 2
+
+
+def test_replay_key_breaks_equal_ts_by_step_id():
+    # Equal stamps must order deterministically (by step_id), never by input order — the tiebreak is what
+    # keeps the causal sort from introducing a new nondeterminism.
+    a = {"type": "main_step", "step_id": 7, "ts": 1.0, "payload": {}}
+    b = {"type": "tool_call", "step_id": 2, "ts": 1.0, "payload": {}}
+    key = appmod._replay_key([a, b])
+    assert sorted([a, b], key=key) == [b, a] and sorted([b, a], key=key) == [b, a]
+    # one event without ts → whole list falls back to step order
+    assert appmod._replay_key([a, {"type": "run_end", "step_id": 9, "payload": {}}]) is appmod._step_key
+
+
+def test_replay_keeps_run_start_first_and_run_end_last_despite_stamps(tmp_path, monkeypatch):
+    # The envelope is pinned by TYPE: a backfilled main_step whose ts fell past run_end (a flush-time
+    # fallback with run_end recorded elsewhere) must still replay BEFORE the terminal event, and a
+    # run_start stamped late (a caller-supplied ts) must still open the stream.
+    _write_trace(tmp_path, [
+        {"type": "run_start", "step_id": 0, "ts": 9.0, "payload": {"meta": {"planner": "P", "task": "t"}}},
+        {"type": "tool_call", "step_id": 1, "ts": 2.0, "payload": {
+            "tool": "load_server", "args": {"server": "math"}, "server": "math", "ok": True}},
+        {"type": "main_step", "step_id": 2, "ts": 99.0, "payload": {"turn": 0, "reasoning": "a", "code": "c"}},
+        {"type": "result", "step_id": 3, "ts": 3.0, "payload": {"output": {"answer": "13"}}},
+        {"type": "run_end", "step_id": 4, "ts": 4.0, "payload": {}}])
+    monkeypatch.setattr(appmod, "ARTIFACTS", tmp_path)
+    with client.stream("GET", "/v1/runs/r/events") as resp:
+        body = "".join(resp.iter_text())
+    names = _event_names(body)
+    assert names[0] == "task.run.created" and names[-1] == "task.run.completed"
+    assert names.count("task.run.completed") == 1
+    assert names.index("task.plan.step") < names.index("task.run.completed")
+
+
+def test_replay_key_rejects_bool_and_nan_stamps():
+    # `True` is an int and NaN is a float, but neither orders anything; one such stamp drops the whole
+    # replay to step order rather than sorting half the events by accident.
+    base = {"type": "tool_call", "step_id": 1, "ts": 1.0, "payload": {}}
+    assert appmod._replay_key([base, {"type": "run_end", "step_id": 2, "ts": True, "payload": {}}]) is appmod._step_key
+    assert appmod._replay_key([base, {"type": "run_end", "step_id": 2, "ts": float("nan"), "payload": {}}]) is appmod._step_key
+    assert appmod._replay_key([base, {"type": "run_end", "step_id": 2, "ts": 2.0, "payload": {}}]) is not appmod._step_key

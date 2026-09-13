@@ -36,7 +36,7 @@ def to_event(trace_event: dict) -> dict[str, Any] | None:
             "criteria": len(meta.get("rubric") or []),  # the rubric criteria count (LABELS, not a score)
         })
     if t == "main_step":
-        # Surfaced for the REPLAY (step-sorted) stream. The LIVE endpoint's sink drops main_step (it
+        # Surfaced for the REPLAY (causally sorted by ts) stream. The LIVE endpoint's sink drops main_step (it
         # flushes post-hoc, so it would arrive as a trailing burst — see live.trace_event_sink).
         return _ev("task.plan.step", {
             "turn": p.get("turn"),

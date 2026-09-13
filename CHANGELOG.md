@@ -12,6 +12,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Fixed — the studio's replay streamed every tool call before every reasoning turn
+`GET /v1/runs/{run_id}/events` sorted the trace by `step_id`, which is WRITE order: rlm-harness flushes
+the whole trajectory once the planner returns, with trailing ids, so a replay showed the action timeline
+first and the reasoning turns after — the caveat the endpoint carried in a comment. The interleave was
+in the trace all along: a `main_step`'s `ts` is stamped live when its reasoning is parsed and only
+backfilled at finalize, so `ts` is causal order. The replay now sorts by `ts` with `step_id` as the
+tiebreak (equal stamps stay deterministic), and falls back to pure step order if any event lacks a
+finite numeric `ts` (a partial `ts` sort would be neither order; `bool` and NaN are not stamps). The
+envelope is pinned by TYPE, not by stamp — `run_start` first, `run_end` last — so a backfilled turn whose
+stamp fell past a `run_end` recorded elsewhere can never overtake the terminal event. (`run_end` is
+recorded after the flush on the same call path, so the gap is never zero — but it is whatever finalize
+costs, microseconds on a generated trace, and it assumes a clock-read `ts` on the same thread; the rank
+removes the dependence on that gap altogether.) Verified on every stored trace: all six runs
+with both families have their live events strictly inside the turn span, and the replay's
+think→act sequence now equals the one `toolscout export` emits under `rlm-harness 1.11.2`. A run whose
+turn stamps fell back to the flush time replays in write order either way; none stored here does.
+`build_iterations` was never affected (it orders turns by their `turn` index and already detects live
+versus flushed stamps for timing). Five studio tests pin the causal order, the fallback, the tiebreak, the envelope rank, and the
+stamp check. Same root cause as the kit-side exporter fix below, found independently by a sibling consumer.
+
 ### Fixed — exported action records carried a WRITE-ordered `state`, not a causal one (kit side)
 `rlm-harness` pin `1.11.0` → `1.11.2` (`1.11.1` was documentation-only). `rl_export.export_dataset` builds
 its `actions` through the kit's `export_actions`, which sequenced `main_step`, `tool_call` and `sub_call`

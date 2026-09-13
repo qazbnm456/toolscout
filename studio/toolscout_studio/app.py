@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import re
 import threading
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -165,6 +167,38 @@ def _step_key(event: dict) -> int:
     return int(s) if s.lstrip("-").isdigit() else 1 << 30
 
 
+def _replay_key(events: list[dict]):
+    """The replay's sort key: CAUSAL order, which is `ts` — not `step_id`, which is WRITE order.
+
+    rlm-harness stamps a `main_step`'s `ts` live, when the turn's reasoning is parsed, and only backfills it at
+    finalize; `tool_call`/`sub_call` are written live. So `ts` already interleaves think→act→think, while
+    `step_id` puts every turn after every tool call (the whole trajectory is flushed once the planner returns,
+    with trailing ids). `step_id` stays as the TIEBREAK so equal stamps order deterministically, never by input
+    accident. If ANY event lacks a numeric `ts` (a fixture, a pre-ts trace) fall back to pure step order — a
+    partial `ts` sort would be neither order. A run whose turn stamps fell back to the flush time replays in
+    write order either way; nothing here can recover an interleave the trace never carried.
+    """
+    if events and all(_is_stamp(e.get("ts")) for e in events):
+        # The envelope events keep their place by TYPE, not by stamp: `run_start` first, `run_end` last.
+        # A `main_step` ts is backfilled, so a turn whose stamp fell back to the flush time could otherwise
+        # sort past a `run_end` recorded from another thread or with a caller-supplied ts — and an SSE
+        # consumer treats `task.run.completed` as terminal. `run_end` IS recorded after the flush on the same
+        # call path, so the gap is never zero — but it is whatever finalize costs, which on a generated or
+        # replayed trace can be microseconds, and it assumes a clock-read ts on the same thread. Pinning the
+        # rank makes the invariant hold by construction, with no margin to spend.
+        return lambda e: (_RANK.get(e.get("type"), 1), e["ts"], _step_key(e))
+    return _step_key
+
+
+_RANK = {"run_start": 0, "run_end": 2}
+
+
+def _is_stamp(ts: Any) -> bool:
+    """A usable `ts`: a finite int/float. `bool` is an int subclass and NaN sorts inconsistently — neither
+    is a stamp, and one such event drops the whole replay back to step order."""
+    return isinstance(ts, (int, float)) and not isinstance(ts, bool) and math.isfinite(ts)
+
+
 def _load_events(path: Path) -> list[dict]:
     events: list[dict] = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -252,12 +286,12 @@ async def stream_run(run_id: str, delay: float = Query(0.0, ge=0, le=10)) -> Str
     p = _trace_path(run_id)
     if not p.exists():
         raise HTTPException(404, f"no trace for run {run_id!r}")
-    # Sort by step_id (matches toolscout's read order). Ordering caveat: tool_calls are written live but
-    # `main_step`s flush post-hoc with trailing step_ids, so a REPLAY streams the action timeline first,
-    # then the reasoning turns — the stored trace does not preserve true think→act interleaving.
+    # Sort CAUSALLY (`ts`, step_id tiebreak — see `_replay_key`): `step_id` alone is write order and would
+    # stream every tool call first and every reasoning turn after, which is not how the run happened.
     # Read + parse the JSONL off the event loop — a multi-MB trace would otherwise block every
     # concurrent request for the whole parse.
-    events = sorted(await asyncio.to_thread(_load_events, p), key=_step_key)
+    events = await asyncio.to_thread(_load_events, p)
+    events = sorted(events, key=_replay_key(events))
 
     async def gen():
         saw_completed = False
