@@ -104,7 +104,7 @@ __all__ = [
     "make_rubric_judge_tool",
 ]
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 def __getattr__(name: str):  # PEP 562 — defer the dspy import to first use

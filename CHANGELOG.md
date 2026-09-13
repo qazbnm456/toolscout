@@ -12,6 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-09-13
+
 ### Fixed — the studio's replay streamed every tool call before every reasoning turn
 `GET /v1/runs/{run_id}/events` sorted the trace by `step_id`, which is WRITE order: rlm-harness flushes
 the whole trajectory once the planner returns, with trailing ids, so a replay showed the action timeline
