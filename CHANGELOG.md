@@ -12,6 +12,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Fixed — exported action records carried a WRITE-ordered `state`, not a causal one (kit side)
+`rlm-harness` pin `1.11.0` → `1.11.2` (`1.11.1` was documentation-only). `rl_export.export_dataset` builds
+its `actions` through the kit's `export_actions`, which sequenced `main_step`, `tool_call` and `sub_call`
+together by `step_id`. That is write order: the kit flushes a whole trajectory once the planner returns, so
+every turn's `step_id` is higher than every live tool call of the same attempt, and the sort put EVERY
+planner turn after EVERY tool call. `state` — "the ordered list of prior actions" — was therefore wrong in
+both directions: a tool record's history held no planner turn at all, and a turn's held every tool call.
+Since `1.11.2` turns are placed by their live turn stamps, so the first record of a run is the planner turn
+that issued the first tool call, with an empty history.
+
+Measured on the eight traces stored here by exporting on both pins and diffing every record: 6 of 8 runs
+(every run with both planner turns and live tool calls) and 104 of 114 action records get a different
+`state`; the two unaffected runs never produced a planner turn. The kit's new degraded-interleave debug
+log stayed silent, so every affected run re-exports correctly — nothing is unrecoverable. `sft_turns`
+and every other export section are byte-identical between the two pins; `reward` stays `None`.
+**Re-export any dataset produced by `toolscout export` under an earlier pin before consuming it.**
+No local code changed. Gates: ruff clean; package 119, studio 52 + 1 skipped, eval 39.
+
 ## [0.2.2] - 2026-09-05
 
 ### Changed — `rlm-harness` pin `1.10.2` → `1.11.0` (`api_rounds` on subscription-path usage)
