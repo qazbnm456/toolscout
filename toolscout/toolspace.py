@@ -124,7 +124,9 @@ def make_list_servers_tool(ts: Toolspace) -> Callable[[], str]:
         """ISL step 1. Return the toolspace's server INDEX: each server's name + a short description, and
         NO tool schemas. Read this first, then `load_server` the one(s) you actually need."""
         servers = ts.catalog.servers()
-        record_tool_call("list_servers", servers=[s.name for s in servers])
+        # ok=True: ISL enumeration has no failure path, so every listing is a success. Without the key
+        # `payload_cause` reads payload.get("ok") as None (falsy) and silently labels it a decline.
+        record_tool_call("list_servers", servers=[s.name for s in servers], ok=True)
         return render_server_index(servers, ts.max_desc_chars)
 
     list_servers.__name__ = "list_servers"
@@ -171,7 +173,10 @@ def make_describe_tools_tool(ts: Toolspace) -> Callable[[list], str]:
             names = [names]
         names = [str(n) for n in (names or [])]
         if not names:
-            record_tool_call("describe_tools", args={"names": []}, described=[])
+            # ok=False: the empty-names guard IS a decline (nothing describable). State it explicitly
+            # rather than leaning on `payload_cause` reading an absent `ok` as a decline — the right
+            # label for the wrong reason, and it breaks the moment anyone adds a real success path here.
+            record_tool_call("describe_tools", args={"names": []}, described=[], ok=False)
             return "Pass a non-empty list of tool names to describe (from a server you loaded)."
         if len(names) > ts.max_describe_batch:
             capped = names[: ts.max_describe_batch]
@@ -191,7 +196,12 @@ def make_describe_tools_tool(ts: Toolspace) -> Callable[[list], str]:
         examples_included = [f"{s.server}:{s.name}" for s in visible
                              if ts.observed_example(s.server, s.name)]
         extra = {"examples_included": examples_included} if examples_included else {}
-        record_tool_call("describe_tools", args={"names": names}, described=described, **extra)
+        # ok=bool(described): an ITL hit disclosed ≥1 tool schema; an empty `described` (every named tool
+        # blocked by ISL discipline or missing on a loaded server) disclosed none — a miss. The payload
+        # is otherwise the same shape for both, so without `ok` a reader cannot tell a hit from a miss
+        # (and reads both as a decline). Same hit/miss-shape-collision the kit just fixed in `read_skill`.
+        record_tool_call("describe_tools", args={"names": names}, described=described,
+                         ok=bool(described), **extra)
         chunks = [render_tool(s, ts.max_desc_chars, observed_example=ts.observed_example(s.server, s.name))
                   for s in visible]
         missing = [n for n in names if n not in found]

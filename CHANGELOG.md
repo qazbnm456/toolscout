@@ -12,6 +12,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Fixed — `list_servers` / `describe_tools` recorded no `ok`, so every success read as a decline
+The three `record_tool_call` sites in `toolspace.py` for `list_servers` and `describe_tools` omitted
+`ok=`. `rlm_harness.trace.payload_cause` reads `payload.get("ok")`, and an absent key returns `None`
+(falsy), so it labels the event `CAUSE_INVALID` — a confident *decline*, not an unknown. Every successful
+ISL listing and every ITL disclosure was being miscounted, and the studio (which renders each tool event's
+`ok`) showed them as non-ok. Fixes, each site on its own merits: `list_servers` → `ok=True` (no failure
+path); `describe_tools` empty-names guard → `ok=False` (it genuinely IS a decline — now stated, not
+accidental); `describe_tools` main branch → `ok=bool(described)`, splitting an ITL hit (≥1 schema
+disclosed) from a miss (every named tool blocked by ISL or missing on a loaded server), which previously
+shared a payload shape. Additive within `trace/v1` (`ok` is an established field). No dependency change —
+the numbers are correct on the pinned rlm-harness 1.11.2. A new `tests/test_toolspace.py` case
+(`test_meta_tools_record_ok_cause`) locks the hit/miss cause discipline in, since 1.11.2 has no
+`CAUSE_UNKNOWN` guard against the next omission.
+
 ## [0.2.3] - 2026-09-13
 
 ### Fixed — the studio's replay streamed every tool call before every reasoning turn

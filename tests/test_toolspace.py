@@ -149,6 +149,35 @@ def test_meta_tools_record_tool_calls(tmp_path):
     assert call["args"]["tool"] == "add" and call["ok"] is True and call["result"] == "13"
 
 
+def test_meta_tools_record_ok_cause(tmp_path):
+    """`ok` is the ONLY field `payload_cause` reads to split a success from a decline — an absent key
+    reads as a confident decline (payload.get("ok") is None, which is falsy). list_servers has no
+    failure path, so it is always a success; describe_tools must separate an ITL hit (≥1 schema
+    disclosed) from a miss (server not loaded, tool missing, or empty names), which otherwise share a
+    payload shape. On 1.11.2 there is no CAUSE_UNKNOWN guard, so this is the toolscout-side check."""
+    from rlm_harness import TraceRecorder
+    from rlm_harness.trace import CAUSE_INVALID, CAUSE_OK, load_events, payload_cause
+
+    ts = Toolspace(demo_catalog(), ToolscoutConfig(main_model="x", sub_model="y"))
+    tools = {t.__name__: t for t in build_toolspace_tools(ts)}
+    path = str(tmp_path / "r.jsonl")
+    with TraceRecorder(path, run_id="r", meta={"task": "t"}):
+        tools["list_servers"]()            # success — enumeration has no failure path
+        tools["describe_tools"](["add"])   # miss: "math" not loaded yet (blocked by ISL discipline)
+        tools["describe_tools"]([])        # miss: empty-names decline
+        tools["load_server"]("math")
+        tools["describe_tools"](["add"])   # hit: one schema disclosed
+    tool_calls = [e["payload"] for e in load_events(path, "r") if e["type"] == "tool_call"]
+
+    listing = next(p for p in tool_calls if p["tool"] == "list_servers")
+    assert listing["ok"] is True and payload_cause(listing) == CAUSE_OK
+
+    blocked, empty, hit = [p for p in tool_calls if p["tool"] == "describe_tools"]
+    assert blocked["ok"] is False and blocked["described"] == [] and payload_cause(blocked) == CAUSE_INVALID
+    assert empty["ok"] is False and empty["described"] == [] and payload_cause(empty) == CAUSE_INVALID
+    assert hit["ok"] is True and hit["described"] == ["math:add"] and payload_cause(hit) == CAUSE_OK
+
+
 def test_call_tool_failure_records_reason(tmp_path):
     from rlm_harness import TraceRecorder
     from rlm_harness.trace import load_events
