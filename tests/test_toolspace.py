@@ -154,7 +154,8 @@ def test_meta_tools_record_ok_cause(tmp_path):
     reads as a confident decline (payload.get("ok") is None, which is falsy). list_servers has no
     failure path, so it is always a success; describe_tools must separate an ITL hit (≥1 schema
     disclosed) from a miss (server not loaded, tool missing, or empty names), which otherwise share a
-    payload shape. On 1.11.2 there is no CAUSE_UNKNOWN guard, so this is the toolscout-side check."""
+    payload shape. (Since rlm-harness 1.24 an absent `ok` reads as CAUSE_UNKNOWN rather than a decline;
+    the writer gate below keeps toolscout from relying on that.)"""
     from rlm_harness import TraceRecorder
     from rlm_harness.trace import CAUSE_INVALID, CAUSE_OK, load_events, payload_cause
 
@@ -336,3 +337,24 @@ def test_load_server_connect_error_text_is_capped(tmp_path):
     ev = [e["payload"] for e in load_events(path, "r")
           if e["type"] == "tool_call" and e["payload"]["tool"] == "load_server"][0]
     assert len(ev["error"]) <= 300 and ev["error"].endswith("…")
+
+
+def test_every_record_tool_call_site_declares_its_outcome():
+    """rlm-harness 1.24 gates ITS OWN writers but says nothing gates a consumer's: every toolscout
+    `record_tool_call` must pass a key `payload_cause` reads (`ok` / `circuit_broken` / an endpoint
+    string), or the call lands as CAUSE_UNKNOWN and skews every rate built on it. Pure AST walk."""
+    import ast
+    import pathlib
+
+    import toolscout
+
+    read = {"ok", "circuit_broken", "error", "endpoint_error"}
+    missing = []
+    for f in pathlib.Path(toolscout.__file__).parent.rglob("*.py"):
+        for n in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
+            fn = getattr(n, "func", None)
+            if isinstance(n, ast.Call) and getattr(fn, "id", getattr(fn, "attr", None)) == "record_tool_call":
+                kws = {k.arg for k in n.keywords}
+                if None not in kws and not kws & read:   # None = a **splat we can't see through
+                    missing.append(f"{f.name}:{n.lineno}")
+    assert missing == []

@@ -23,16 +23,19 @@ from toolscout.response import build_response
 from toolscout.rubric import default_rubric, rubric_to_meta
 
 
-def _run_scripted(tmp_path, steps, planner_turns, *, run_id="task", task="add six and seven"):
+def _run_scripted(tmp_path, steps, planner_turns, *, run_id="task", task="add six and seven",
+                  max_iterations=30):
     """Drive one full scripted solve through the real loop and return (planner_outcome, events)."""
-    configure(RLMConfig(main_model="x", sub_model="x", interpreter="mock", observe=False),
+    configure(RLMConfig(main_model="x", sub_model="x", interpreter="mock", observe=False,
+                        max_iterations=max_iterations),
               main_lm=scripted_lm(planner_turns), sub_lm=scripted_lm([{"reasoning": "r", "outcome": "{}"}]))
-    cfg = ToolscoutConfig(main_model="x", sub_model="x", interpreter="mock", enable_skills=False)
+    cfg = ToolscoutConfig(main_model="x", sub_model="x", interpreter="mock", enable_skills=False,
+                          max_iterations=max_iterations)
     solver = SolveTask(config=cfg, catalog=demo_catalog(), interpreter=ScriptedInterpreter(steps))
     rubric = default_rubric(task)
     path = str(tmp_path / f"{run_id}.jsonl")
     meta = {"task": task, "instructions": solver.instructions, "rubric": rubric_to_meta(rubric),
-            "planner": "p", "specialist": "s", "judge": None, "max_iterations": 30}
+            "planner": "p", "specialist": "s", "judge": None, "max_iterations": max_iterations}
 
     async def _go():
         try:
@@ -99,3 +102,42 @@ def test_call_tool_before_load_is_recoverable_in_the_loop(tmp_path):
     calls = [e["payload"] for e in events if e["payload"].get("tool") == "call_tool"]
     assert calls[0]["ok"] is False and calls[0]["reason"] == "not_loaded"
     assert calls[1]["ok"] is True and calls[1]["result"] == "3"
+
+
+def test_sft_turns_adapter_render_reproduces_the_sent_requests(tmp_path):
+    """rlm-harness >= 1.25 records `rlm_setup` + per-call fields, so `export_dataset(sft_render="adapter")`
+    rebuilds each planner request with dspy's own adapter and checks it against the recorded hash.
+    `TaskOutcome` is flat (no `$defs`), so it rebuilds with NO `custom_types` — `verified` must be True."""
+    from toolscout.rl_export import export_dataset
+
+    _, events = _run_scripted(
+        tmp_path,
+        steps=[call("list_servers"), submit({"outcome": {"answer": "13"}})],
+        planner_turns=[{"reasoning": "index", "code": "print(list_servers())"},
+                       {"reasoning": "submit", "code": "SUBMIT(outcome=...)"}])
+    assert any(e["type"] == "rlm_setup" for e in events)
+    recs = export_dataset({"task": events}, sft_render="adapter")["sft_turns"]
+    assert [r["kind"] for r in recs] == ["action", "action"]
+    assert all(r["verified"] is True and r["assistant_source"] == "completion" for r in recs)
+    assert all([m["role"] for m in r["messages"]] == ["system", "user"] for r in recs)
+    # the default shape is unchanged
+    assert set(export_dataset({"task": events})["sft_turns"][0]) >= {"input", "output"}
+
+
+def test_sft_turns_adapter_render_covers_the_extract_fallback(tmp_path):
+    """When the iteration budget runs out, dspy's `extract` call fills the TaskOutcome; 1.25 records it
+    as an `extract` event and the adapter export emits it as its own verified record."""
+    from toolscout.rl_export import export_dataset
+
+    outcome, events = _run_scripted(
+        tmp_path,
+        steps=[call("list_servers")],
+        planner_turns=[{"reasoning": "index", "code": "print(list_servers())"},
+                       {"reasoning": "out of budget",
+                        "outcome": {"answer": "unknown", "summary": "budget hit"}}],
+        max_iterations=1)
+    assert outcome.answer == "unknown"
+    assert any(e["type"] == "extract" for e in events)
+    recs = export_dataset({"task": events}, sft_render="adapter")["sft_turns"]
+    assert [r["kind"] for r in recs] == ["action", "extract"]
+    assert all(r["verified"] is True for r in recs)

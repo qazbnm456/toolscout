@@ -12,7 +12,7 @@ this tree.
   inherited.
 - **`configure` / `RLMConfig`** — the process-level wiring seam (`agent.setup`), including the
   `main_lm=` / `sub_lm=` injection points.
-- **The trace schema (`trace/v1`)** and `rlm_harness.trace` helpers (`record_tool_call`, `load_events`,
+- **The trace schema (`trace/v2` since rlm-harness 1.17; v1 traces still read)** and `rlm_harness.trace` helpers (`record_tool_call`, `load_events`,
   `group_by_run`, `EVENT_*`) — toolscout reads and writes the kit's wire format additively, never a fork
   of it.
 - **The exporters** (`rlm_harness.dataset.export_actions` / `export_sft_turns`) — the reward-free dataset is

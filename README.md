@@ -66,6 +66,7 @@ toolscout solve "Use the memory server to store 'blue' under the key 'color', th
 # Fully offline — no model, no Deno, no network:
 toolscout render output/traces/task.jsonl task     # re-render a response from a trace
 toolscout export "output/traces/*.jsonl" ds.json   # reward-free SFT/RL dataset
+toolscout export --sft-render adapter "output/traces/*.jsonl" ds.json  # sft_turns = the exact planner requests
 toolscout rubric "summarize the repo's open issues" # decompose a task into a rubric
 ```
 

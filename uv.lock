@@ -5,8 +5,8 @@ resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'win32'",
-    "python_full_version < '3.12' and sys_platform == 'win32'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'win32'",
+    "python_full_version < '3.12' and sys_platform == 'win32'",
     "python_full_version < '3.12' and sys_platform != 'win32'",
 ]
 
@@ -37,7 +37,7 @@ dependencies = [
     { name = "frozenlist" },
     { name = "multidict" },
     { name = "propcache" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or python_full_version >= '3.15'" },
     { name = "yarl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/82/78/8ea7308cac6934de8c74a14f3d5f65d1c89287426688be79538d0e5c013d/aiohttp-3.14.1.tar.gz", hash = "sha256:307f2cff90a764d329e77040603fa032db89c5c24fdad50c4c15334cba744035", size = 7955794, upload-time = "2026-06-07T21:09:35.529Z" }
@@ -150,7 +150,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or python_full_version >= '3.15'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -520,27 +520,29 @@ wheels = [
 
 [[package]]
 name = "dspy"
-version = "3.3.1"
+version = "3.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "cachetools" },
     { name = "cloudpickle" },
     { name = "diskcache" },
-    { name = "gepa" },
+    { name = "gepa", marker = "python_full_version < '3.15'" },
     { name = "json-repair" },
-    { name = "litellm" },
+    { name = "jsonschema" },
+    { name = "litellm", marker = "python_full_version < '3.15'" },
     { name = "openai" },
     { name = "orjson" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "regex" },
     { name = "requests" },
     { name = "tenacity" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/47/36/cafd7ee235481f299426243d9c3608b9fa2e64227940cce50f94feea9570/dspy-3.3.1.tar.gz", hash = "sha256:ca53a428ac6a30984a894cf3847cf623b7dd7e8aadf8a63620b1f1f6155e4eaf", size = 361491, upload-time = "2026-08-21T23:06:13.993Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/00/5c/260210d87e0604b9086735a8dc1ef8ca4edd61bc9e8042a013ca36cf8b7e/dspy-3.4.1.tar.gz", hash = "sha256:6803449c11818efd10537da22e509a87af1bd30796053d1a6c82421f2afaa461", size = 926321, upload-time = "2026-10-12T23:07:25.395Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d7/cc/d769426ff2cfb816bdedbcedf364c1812b6831887d34be8d188ca2727dc8/dspy-3.3.1-py3-none-any.whl", hash = "sha256:250049f565f52c014609ce2d3ca0de17a6c9449ac961492d61a009aa30dceabf", size = 421179, upload-time = "2026-08-21T23:06:12.591Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/2f/656f16206c9ba4e359b639e2605cf196a4e5c678c6d9aed0fae537701ec2/dspy-3.4.1-py3-none-any.whl", hash = "sha256:afda9e7f8b3d46be0829af19ac1153a6feaa6db5923f2b1011eef547fb15ce2d", size = 1027332, upload-time = "2026-10-12T23:07:23.761Z" },
 ]
 
 [[package]]
@@ -2071,15 +2073,15 @@ wheels = [
 
 [[package]]
 name = "rlm-harness"
-version = "1.11.2"
+version = "1.25.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dspy" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/fd/9024a738922bd1d10acd52c4801c8e393162fbabf6c0cb6318bed39661a3/rlm_harness-1.11.2.tar.gz", hash = "sha256:149c00ee7286982ad74714af118639862f2267387967b417e5583b92ca699450", size = 726079, upload-time = "2026-09-11T14:38:28.354Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/c9/3ff1205ad302eac89225d39d704285b804a0154041c2a6a6e085b3a85520/rlm_harness-1.25.0.tar.gz", hash = "sha256:9280b3a73ae8a44732aecbfca946245e42232602427c4d49d14fd28020536d18", size = 1189823, upload-time = "2026-11-04T18:52:00.696Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/0d/08a0e8cd77d66c2becfc35b262fc9a394a10b601c5c8147df887cabcab31/rlm_harness-1.11.2-py3-none-any.whl", hash = "sha256:d2f036e945d70817d93adbd0cdaa256cb7e06a90ac858f9f5be2d40443a180a3", size = 291178, upload-time = "2026-09-11T14:38:26.763Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/88/7e9cbd0cae621f5e278675141b2437a598161526405bed836e3e4b1c8609/rlm_harness-1.25.0-py3-none-any.whl", hash = "sha256:cfcc66dfb4bffdcb3e61af04a6c8b7510664d02bcf8a8d3bdbc0098608415d2f", size = 488434, upload-time = "2026-11-04T18:51:59.061Z" },
 ]
 
 [[package]]
@@ -2369,7 +2371,7 @@ requires-dist = [
     { name = "openai", marker = "extra == 'judge'", specifier = ">=1.0" },
     { name = "openinference-instrumentation-dspy", marker = "extra == 'observe'", specifier = ">=0.1.36" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "rlm-harness", specifier = "==1.11.2" },
+    { name = "rlm-harness", specifier = "==1.25.0" },
 ]
 provides-extras = ["judge", "observe", "subscription"]
 

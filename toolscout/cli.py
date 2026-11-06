@@ -3,6 +3,7 @@
     toolscout solve "What is the most recent breach in Have I Been Pwned?"  # run (needs TS_* creds + Deno)
     toolscout render traces/demo.jsonl demo                          # re-render a response from a trace
     toolscout export "traces/*.jsonl" ds.json                        # reward-free dataset export (offline)
+    toolscout export --sft-render adapter "traces/*.jsonl" ds.json   # sft_turns = the exact adapter request
     toolscout rubric "summarize the repo's open issues"              # host-side rubric decomposition
 
 `run()` is the programmatic entry. It records `traces/{run_id}.jsonl`, writes `responses/{run_id}.json`,
@@ -202,7 +203,7 @@ def _cmd_export(args) -> int:
 
     paths = [p for g in args.trace for p in glob.glob(g)]
     runs = load_runs(*paths)
-    bundle = export_dataset(runs)
+    bundle = export_dataset(runs, sft_render=args.sft_render)
     with open(args.out, "w", encoding="utf-8") as fh:
         json.dump(bundle, fh, ensure_ascii=False, indent=2, default=str)
     print(f"runs={len(runs)} | actions={len(bundle['actions'])} | sft_turns={len(bundle['sft_turns'])} "
@@ -324,6 +325,9 @@ def build_parser() -> argparse.ArgumentParser:
     e = sub.add_parser("export", help="export reward-free SFT/RL datasets from traces (offline)")
     e.add_argument("trace", nargs="+", help="trace file glob(s)")
     e.add_argument("out", help="output json path")
+    e.add_argument("--sft-render", choices=["adapter"], default=None,
+                   help="sft_turns as the exact request the planner's adapter sent (traces from rlm-harness "
+                        ">= 1.25.0); default: the format-agnostic per-turn shape")
     e.set_defaults(func=_cmd_export)
 
     rb = sub.add_parser("rubric", help="decompose a task into a grading rubric (host-side, dataset-prep)")

@@ -12,6 +12,34 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Changed — rlm-harness 1.11.2 → 1.25.0 (dspy 3.3.1 → 3.4.1; the kit caps dspy `>=3.4.1,<3.5.0`)
+The exact pin moves at the workspace root (it applies to `studio/` and `eval/`); `uv.lock` re-resolved.
+What the 1.12–1.25 range changes for toolscout, checked one by one:
+- **Trace wire format is `rlm-harness/trace/v2`** (1.17). The only v1→v2 difference is `api_rounds`
+  leaving `run_end.payload.usage` for its own event; nothing here read that key, and v1 traces still load.
+  Doc/comment mentions of `trace/v1` now say v2 (the CLAUDE.md invariant text still says `trace/v1` —
+  left for the maintainer).
+- **New events `rlm_setup` (once per run), `extract` (the budget fallback call), `api_rounds`**, plus
+  optional per-call fields on `main_step`. The studio maps none of them (they fall through to `None`) and
+  its trajectory breakdown is unchanged with them present — pinned by new studio tests and checked on a
+  real 1.25 trace. The eval scorer reads only `tool_call`s plus the assembled outcome and is unaffected.
+- **`payload_cause` gained `CAUSE_UNKNOWN`** (1.24) for a payload with no `ok`. Every toolscout
+  `record_tool_call` site already declares its outcome (`ok` / `circuit_broken` / an endpoint string), so
+  no count moves; a new AST gate (`test_every_record_tool_call_site_declares_its_outcome`) keeps it so.
+- **`ClaudeAgentLM` is a dspy engine** (1.17). toolscout constructs it with the model id only, so the
+  removed connection kwargs don't reach it.
+- **`ScriptedInterpreter` step counts** (1.16): the offline forward tests needed no change.
+
+### Added — `export --sft-render adapter`: `sft_turns` as the exact request the planner was sent
+`rl_export.export_dataset(runs, sft_render="adapter")` (CLI: `toolscout export --sft-render adapter …`,
+module: `python -m toolscout.rl_export --sft-render adapter …`) passes through to rlm-harness 1.25's
+`export_sft_turns(render="adapter")`: one record per planner call — action turns AND the `extract`
+fallback — whose `messages` are rebuilt by dspy's own adapter and hash-`verified` against what was sent,
+with the raw completion as `assistant`. `TaskOutcome` is a flat pydantic model (no `$defs`), so no
+`custom_types` is needed; the offline forward tests assert `verified=True` for both call kinds. The
+default `sft_turns` shape is unchanged, the bundle stays reward-free, and only the adapter mode imports
+dspy. Traces recorded before 1.25 yield no adapter records (rlm-harness warns).
+
 ### Fixed — `list_servers` / `describe_tools` recorded no `ok`, so every success read as a decline
 The three `record_tool_call` sites in `toolspace.py` for `list_servers` and `describe_tools` omitted
 `ok=`. `rlm_harness.trace.payload_cause` reads `payload.get("ok")`, and an absent key returns `None`

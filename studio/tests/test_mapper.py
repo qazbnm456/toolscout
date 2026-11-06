@@ -105,3 +105,10 @@ def test_result_and_run_end_and_final():
 def test_unknown_type_and_unsurfaced_tool_are_skipped():
     assert to_event({"type": "something_else", "payload": {}}) is None
     assert to_event({"type": "tool_call", "payload": {"tool": "mystery_tool", "args": {}}}) is None
+
+
+def test_rlm_harness_1_25_events_are_skipped():
+    """rlm-harness 1.17 added `api_rounds`, 1.25 `rlm_setup` (once per run) and `extract` (the budget
+    fallback call). None is a studio event; they must fall through to None, never raise."""
+    for t in ("rlm_setup", "extract", "api_rounds"):
+        assert to_event({"type": t, "payload": {"adapter": "json", "outputs": {}}}) is None

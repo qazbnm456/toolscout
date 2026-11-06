@@ -81,3 +81,20 @@ def test_per_turn_timing_off_when_main_steps_cluster():
     d = build_iterations(trace)
     assert d["per_turn_timing"] is False
     assert "duration_s" not in d["iterations"][0]
+
+
+def test_rlm_harness_1_25_events_do_not_change_the_breakdown():
+    """`rlm_setup` / `extract` / `api_rounds` (and the new per-call `main_step` fields) are ignored:
+    the trajectory breakdown and the re-derived ops are identical with or without them."""
+    base = _trace()
+    extra = [dict(e) for e in base]
+    extra[1] = {**extra[1], "payload": {**extra[1]["payload"], "iteration": 0, "messages_sha256": "ab",
+                                        "completion": "{...}", "usage": {"prompt_tokens": 3}}}
+    extra.insert(1, {"type": "rlm_setup", "ts": 1.0,
+                     "payload": {"adapter": "json", "variables_info": "task: str", "predictors": {}}})
+    extra.insert(-2, {"type": "api_rounds", "ts": 4.2, "payload": {"model": "P", "rounds": []}})
+    extra.insert(-2, {"type": "extract", "ts": 4.4,
+                      "payload": {"outputs": {"outcome": {"answer": "13"}}}})
+    extra = [{**e, "step_id": i} for i, e in enumerate(extra)]   # the recorder's sequential ids
+    assert build_iterations(extra) == build_iterations(base)
+    assert toolspace_ops(extra) == toolspace_ops(base)

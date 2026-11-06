@@ -12,7 +12,7 @@ so the gap between consecutive events is the only signal of where the time went)
 `toolspace_ops` reconstructs the discovery narrative — which servers were LISTED (the index), which got
 LOADED (ISL), which tools were DESCRIBED (ITL), and which were CALLED with what args + result (PTC) —
 straight from the trace. `AssembledOutcome` carries flat `servers_loaded`/`tools_used`, but not the
-per-op detail, so the studio re-derives it here (pure over the frozen trace/v1 contract; works replay-
+per-op detail, so the studio re-derives it here (pure over the trace/v2 contract, v1-compatible; works replay-
 only, no toolscout import) and the get_run endpoint augments the response with it.
 """
 

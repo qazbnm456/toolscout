@@ -136,3 +136,10 @@ def test_an_explicit_judge_call_id_still_wins():
                "payload": {"tool": "rubric_judge", "ok": True, "observations": [{"criterion": "b"}]}}]
 
     assert _judge_observations(events, 7) == [{"criterion": "a"}]
+
+
+def test_export_dataset_rejects_an_unknown_sft_render(tmp_path):
+    import pytest
+
+    with pytest.raises(ValueError, match="sft_render"):
+        export_dataset({"r1": _run(tmp_path, "r1", {"answer": "13"})}, sft_render="chatml")

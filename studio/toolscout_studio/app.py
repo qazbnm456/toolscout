@@ -7,7 +7,7 @@
   the ISL/ITL/PTC ACTION trajectory as SSE (the `TraceRecorder`'s `on_event` observer; see `live.py`),
   ending with `task.run.completed` carrying the durable `TaskResponse`.
 
-The console reads toolscout's trace/v1 + TaskResponse contract; it re-implements no harness logic. NO
+The console reads toolscout's trace (rlm-harness v2, v1-compatible) + TaskResponse contract; it re-implements no harness logic. NO
 cancel/Stop in v1 (a solve is one bounded RLM episode): a terminal Ctrl+C makes uvicorn wait for the live
 SSE to close (the run to finish) before exiting — set `--timeout-graceful-shutdown` as a bound.
 """

@@ -1,7 +1,7 @@
 """Score one recorded run against its EvalTask, then aggregate rows into the terminal scorecard.
 
 This is the READ side of the harness: it reconstructs the ATLAS judge's inputs deterministically from
-the existing `trace/v1` contract — `toolscout.assemble.outcome_from_events` for the answer + re-sourced
+the existing trace contract (`trace/v2`, v1-compatible) — `toolscout.assemble.outcome_from_events` for the answer + re-sourced
 servers/tools + metrics (so the judge grades the same trace-grounded facts a human sees, not the
 planner's self-report), `toolscout.rubric.trace_facts` + the recorded `tool_call` events for the
 execution summary, and the EvalTask's judge-only `reference`. NO new trace field is read or written.

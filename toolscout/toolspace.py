@@ -192,7 +192,7 @@ def make_describe_tools_tool(ts: Toolspace) -> Callable[[list], str]:
         blocked = sorted({s.server for s in specs if not ts.is_loaded(s.server)})
         described = [f"{s.server}:{s.name}" for s in visible]
         # `examples_included` rides the payload ONLY when non-empty, so an idle feature keeps existing
-        # describe_tools traces byte-identical (additive within trace/v1).
+        # describe_tools traces byte-identical (additive within the trace contract).
         examples_included = [f"{s.server}:{s.name}" for s in visible
                              if ts.observed_example(s.server, s.name)]
         extra = {"examples_included": examples_included} if examples_included else {}
@@ -279,7 +279,7 @@ def make_call_tool_tool(ts: Toolspace) -> Callable[[str, str, dict | None], obje
         ts._observed[(server, tool)] = capped   # cache the (capped) result as an ITL example, this run
         # Record under BOTH `result` (toolscout's canonical read key) and `raw` (what rlm-harness's generic
         # export_actions reads for a tool action's outcome.output) — so the PTC action dataset carries the
-        # tool's output, the TG/PA grounding signal. Same value; additive within trace/v1.
+        # tool's output, the TG/PA grounding signal. Same value; additive within the trace contract.
         record_tool_call("call_tool", args={"tool": tool, "args": coerced}, server=server, ok=True,
                          result=capped, raw=capped)
         return native

@@ -7,7 +7,15 @@ plus its deterministic per-criterion FACTS and the opt-in judge's per-criterion 
 reward scalar is attached (`reward=None` to rlm-harness's exporters); reward composition, the rubric's `dᵢ`
 scoring, credit assignment, and GRPO/SFT live in the SEPARATE fine-tuning project.
 
-Usage: python -m toolscout.rl_export "traces/*.jsonl" dataset.json
+`sft_turns` has two shapes, both rlm-harness's (`export_sft_turns`): the default format-agnostic
+`{input: {initial, history}, output: {reasoning, code}}` per root turn, or — `sft_render="adapter"` (traces
+recorded on rlm-harness >= 1.25.0, which carry the `rlm_setup` event + per-call `main_step` fields) — the
+EXACT request each planner call was sent (`messages` rebuilt by dspy's own adapter and hash-`verified`, the
+raw completion as `assistant`), plus the `extract` fallback call when the iteration budget ran out. The
+planner's output type `TaskOutcome` is a flat pydantic model (no `$defs`), so no `custom_types` is needed.
+The adapter mode imports dspy; the default does not.
+
+Usage: python -m toolscout.rl_export [--sft-render adapter] "traces/*.jsonl" dataset.json
 """
 
 from __future__ import annotations
@@ -133,10 +141,19 @@ def rubric_signal(events: list[dict]) -> dict:
     }
 
 
-def export_dataset(runs: dict[str, list[dict]]) -> dict:
+SFT_RENDERS = (None, "adapter")
+
+
+def export_dataset(runs: dict[str, list[dict]], *, sft_render: str | None = None) -> dict:
     """Build the REWARD-FREE trajectory bundle. The PLANNER is the RLM root (ONE multi-turn policy —
     `sft_turns` for SFT, `planner`/`actions` for RL); its toolspace ops split from the opt-in judge tool.
-    Records carry `reward=None`; the rubric signal rides alongside as per-run LABELS."""
+    Records carry `reward=None`; the rubric signal rides alongside as per-run LABELS.
+
+    `sft_render` picks the `sft_turns` shape (see the module doc): None (default, format-agnostic) or
+    "adapter" (the exact request each planner/extract call was sent; a pre-1.25 trace yields no records
+    for it, with a warning from rlm-harness)."""
+    if sft_render not in SFT_RENDERS:
+        raise ValueError(f"sft_render must be one of {SFT_RENDERS}, not {sft_render!r}")
     actions = export_actions(runs, reward=None)
     tool_acts = [a for a in actions if a["kind"] == "tool"]
     return {
@@ -144,7 +161,7 @@ def export_dataset(runs: dict[str, list[dict]]) -> dict:
         "planner": [a for a in actions if a["kind"] == "planner"],
         "toolspace_ops": [a for a in tool_acts if a.get("tool") in META_TOOLS],
         "judge": [a for a in tool_acts if a.get("tool") == JUDGE_TOOL],
-        "sft_turns": export_sft_turns(runs),
+        "sft_turns": export_sft_turns(runs, render=sft_render),
         # The three per-run LABEL surfaces ride via rlm-harness's shared run_label_bundle (the canonical
         # {surface: {run_id: fn(events)}} seam) — one bundle shape across consumers; `reward` is a
         # refused surface name (it raises). Output is byte-identical to the old comprehensions
@@ -154,13 +171,17 @@ def export_dataset(runs: dict[str, list[dict]]) -> dict:
 
 
 def main() -> None:
-    if len(sys.argv) < 3:
-        print("usage: python -m toolscout.rl_export <trace-glob...> <out.json>")
+    argv = sys.argv[1:]
+    sft_render = None
+    if argv[:1] == ["--sft-render"] and len(argv) >= 2:
+        sft_render, argv = argv[1], argv[2:]
+    if len(argv) < 2:
+        print("usage: python -m toolscout.rl_export [--sft-render adapter] <trace-glob...> <out.json>")
         raise SystemExit(2)
-    *globs, out = sys.argv[1:]
+    *globs, out = argv
     paths = [p for g in globs for p in glob.glob(g)]
     runs = load_runs(*paths)
-    bundle = export_dataset(runs)
+    bundle = export_dataset(runs, sft_render=sft_render)
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(bundle, fh, ensure_ascii=False, indent=2, default=str)
     finalized = sum(1 for lab in bundle["labels"].values() if lab["finalized"])
