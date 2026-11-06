@@ -6,13 +6,7 @@ https://github.com/user-attachments/assets/afa8fb71-8c41-4b47-acb8-9c4165345411
 
 _The studio: hand it one task over a large MCP toolspace, watch the small planner discover servers and compute over tool results (ISL→ITL→PTC) live in the trace, then read the grounded, fabrication-checked outcome._
 
-A small language model cannot hold the schemas of hundreds of tools in its context. ATLAS (Adaptive Tool
-Loading and Scoped Context, Microsoft Research) shows how to make it work anyway: let the model
-**discover** the toolspace progressively and **compute over tool results as code**. That method is general
-to any large toolspace — MCP is its testbed. toolscout implements the **rollout + evaluation** side of it
-as a downstream *consumer* of rlm-harness: it declares one `RLMTask`, adds four fixed meta-tools, and inherits
-the sandbox, tracing, retry, and dataset export from the kit. (The reward-composition + RFT *training* side
-is a separate project — see [the guide](toolscout/README.md#what-toolscout-implements--and-what-it-leaves-to-you).)
+A small language model cannot hold the schemas of hundreds of tools in its context. ATLAS (Adaptive Tool Loading and Scoped Context, Microsoft Research) shows how to make it work anyway: let the model **discover** the toolspace progressively and **compute over tool results as code**. That method is general to any large toolspace — MCP is its testbed. toolscout implements the **rollout + evaluation** side of it as a downstream *consumer* of rlm-harness: it declares one `RLMTask`, adds four fixed meta-tools, and inherits the sandbox, tracing, retry, and dataset export from the kit. (The reward-composition + RFT *training* side is a separate project — see [the guide](toolscout/README.md#what-toolscout-implements--and-what-it-leaves-to-you).)
 
 ```
 task ─▶ [planner (small LM) in a sandboxed REPL]
@@ -54,10 +48,7 @@ TOOLSPACE USE: servers_loaded=1 tools_used=1 described=1 calls(ok/fail)=1/0 turn
   tools:   ['hibp:hibp_get_latest_breach']
 ```
 
-That is the whole loop in one command: the planner picked the server out of the index (**ISL**), pulled
-just that one tool's schema (**ITL**), called it and computed on the result in its REPL (**PTC**) — and the
-answer is one no model can produce from training data. `TOOLSPACE USE` is re-sourced from the trace, not
-self-reported.
+That is the whole loop in one command: the planner picked the server out of the index (**ISL**), pulled just that one tool's schema (**ITL**), called it and computed on the result in its REPL (**PTC**) — and the answer is one no model can produce from training data. `TOOLSPACE USE` is re-sourced from the trace, not self-reported.
 
 ```bash
 # No external server at all — the built-in demo catalog (echo/math/memory/text; offline, deterministic):
@@ -70,26 +61,16 @@ toolscout export --sft-render adapter "output/traces/*.jsonl" ds.json  # sft_tur
 toolscout rubric "summarize the repo's open issues" # decompose a task into a rubric
 ```
 
-With no `TS_TOOLSPACE` set, toolscout falls back to that built-in demo catalog, so `solve` works
-end-to-end without any external MCP server once you have model creds + Deno. Point `TS_TOOLSPACE` at your
-own MCP servers for the real path. (Pick a task the planner genuinely *needs* a tool for — asked to compute
-`6 * 7`, a competent planner just does it in its REPL and touches no server at all, which is correct PTC
-behaviour but demonstrates nothing.)
+With no `TS_TOOLSPACE` set, toolscout falls back to that built-in demo catalog, so `solve` works end-to-end without any external MCP server once you have model creds + Deno. Point `TS_TOOLSPACE` at your own MCP servers for the real path. (Pick a task the planner genuinely *needs* a tool for — asked to compute `6 * 7`, a competent planner just does it in its REPL and touches no server at all, which is correct PTC behaviour but demonstrates nothing.)
 
 ## What's in the box
 
-- **The ATLAS discovery loop as four fixed meta-tools.** `list_servers` → `load_server` (ISL) →
-  `describe_tools` (ITL) → `call_tool` (PTC) — the whole toolspace is reached through these four, so every
-  discovery decision lands in the trace.
-- **Scaffolding over a heterogeneous toolspace.** Uniform Python signatures, argument coercion, fixable
-  error strings, a declared-return + example-output hint, and an optional `MCPServer` call proxy.
-- **Judgement-only SUBMIT + assemble-on-read.** The planner submits citations, not evidence; the facts are
-  re-sourced from the trace on read, and fabrication is flagged.
-- **The rubric carried as LABELS, never a reward.** TF/TA/TG/PA criteria + deterministic per-criterion
-  facts + an opt-in judge tool — all `reward=None`. Scoring belongs to your downstream trainer.
+- **The ATLAS discovery loop as four fixed meta-tools.** `list_servers` → `load_server` (ISL) → `describe_tools` (ITL) → `call_tool` (PTC) — the whole toolspace is reached through these four, so every discovery decision lands in the trace.
+- **Scaffolding over a heterogeneous toolspace.** Uniform Python signatures, argument coercion, fixable error strings, a declared-return + example-output hint, and an optional `MCPServer` call proxy.
+- **Judgement-only SUBMIT + assemble-on-read.** The planner submits citations, not evidence; the facts are re-sourced from the trace on read, and fabrication is flagged.
+- **The rubric carried as LABELS, never a reward.** TF/TA/TG/PA criteria + deterministic per-criterion facts + an opt-in judge tool — all `reward=None`. Scoring belongs to your downstream trainer.
 - **A reward-free trajectory dataset.** SFT / planner-toolspace-ops / judge splits, exported from the trace.
-- **An offline 4-category evaluation scorecard.** `toolscout-eval` reproduces ATLAS's LLM-as-judge
-  evaluation (measurement only, separate from any training reward).
+- **An offline 4-category evaluation scorecard.** `toolscout-eval` reproduces ATLAS's LLM-as-judge evaluation (measurement only, separate from any training reward).
 - **A trajectory studio.** An SSE server + web console that replays a run's ISL/ITL/PTC trajectory.
 
 ## Documentation — the guide
@@ -106,9 +87,7 @@ The deep documentation lives in [**`toolscout/README.md`**](toolscout/README.md)
 
 ## Relationship to rlm-harness
 
-toolscout **vendors nothing** — it consumes rlm-harness's public surface (`RLMTask`, the trace schema, the
-exporters, `make_model_tool`, `ClaudeAgentLM`) and extends it the sanctioned way: subclass `RLMTask`,
-add tools via the base/wrap split, read results through the trace. See [`VENDOR.md`](VENDOR.md).
+toolscout **vendors nothing** — it consumes rlm-harness's public surface (`RLMTask`, the trace schema, the exporters, `make_model_tool`, `ClaudeAgentLM`) and extends it the sanctioned way: subclass `RLMTask`, add tools via the base/wrap split, read results through the trace. See [`VENDOR.md`](VENDOR.md).
 
 ## Develop
 
@@ -117,12 +96,7 @@ uvx ruff check .                         # lint (ruff defaults, line-length 110)
 uv run --group dev python -m pytest -q   # the package suite — fully offline (no model, no Deno, no network)
 ```
 
-dspy-bearing paths use `DummyLM` + rlm-harness's offline forward harness or skip; the toolspace defaults to the
-built-in demo catalog. The `studio/` and `eval/` workspace members carry their own suites — see
-[`AGENTS.md`](AGENTS.md) for those commands and [`docs/INVARIANTS.md`](docs/INVARIANTS.md) for the invariants when editing. The `synth/` member
-(`toolscout-synth`) is a deterministic offline taskset with checkable gold answers over a fictional
-multi-server toolspace; see [`synth/README.md`](synth/README.md) (suite:
-`uv run --package toolscout-synth --extra dev python -m pytest synth/tests`).
+dspy-bearing paths use `DummyLM` + rlm-harness's offline forward harness or skip; the toolspace defaults to the built-in demo catalog. The `studio/` and `eval/` workspace members carry their own suites — see [`AGENTS.md`](AGENTS.md) for those commands and [`docs/INVARIANTS.md`](docs/INVARIANTS.md) for the invariants when editing. The `synth/` member (`toolscout-synth`) is a deterministic offline taskset with checkable gold answers over a fictional multi-server toolspace; see [`synth/README.md`](synth/README.md) (suite: `uv run --package toolscout-synth --extra dev python -m pytest synth/tests`).
 
 ## License
 
