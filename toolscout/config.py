@@ -17,6 +17,7 @@ surface, like a fetched web page), so their rendered text is length-bounded (`ma
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Any
@@ -75,9 +76,12 @@ def _env_optional_float(name: str) -> float | None:
     raw = os.getenv(name)
     if raw is None or not raw.strip():
         return None
-    value = float(raw)
-    if value <= 0:
-        raise ValueError(f"{name} must be a positive number of seconds, got {raw!r}")
+    try:
+        value = float(raw)
+    except ValueError:
+        value = float("nan")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be a positive, finite number of seconds, got {raw!r}")
     return value
 
 

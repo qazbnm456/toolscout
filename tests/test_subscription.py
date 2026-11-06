@@ -82,5 +82,8 @@ def test_lm_kwargs_reach_the_built_dspy_lm():
     setup(ToolscoutConfig(main_model="p", sub_model="s", base_url="http://127.0.0.1:9/v1", api_key="k",
                           main_lm_kwargs={"temperature": 0.7}, sub_lm_kwargs={"temperature": 0.3},
                           request_timeout_s=1800.0))
+    from rlm_harness.runtime import _STATE
+
     main = dspy.settings.lm
     assert main.kwargs["temperature"] == 0.7 and main.kwargs["timeout"] == 1800.0
+    assert _STATE.sub_lm.kwargs["temperature"] == 0.3 and _STATE.sub_lm.kwargs["timeout"] == 1800.0

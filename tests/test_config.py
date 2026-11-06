@@ -114,9 +114,10 @@ def test_lm_kwargs_and_request_timeout_from_env(monkeypatch):
         with pytest.raises(ValueError, match=match):
             ToolscoutConfig.from_env()
     monkeypatch.delenv("TS_ROOT_LM_KWARGS")
-    monkeypatch.setenv("TS_REQUEST_TIMEOUT", "0")
-    with pytest.raises(ValueError, match="TS_REQUEST_TIMEOUT"):
-        ToolscoutConfig.from_env()
+    for bad in ("0", "-5", "nan", "inf", "abc"):
+        monkeypatch.setenv("TS_REQUEST_TIMEOUT", bad)
+        with pytest.raises(ValueError, match="TS_REQUEST_TIMEOUT"):
+            ToolscoutConfig.from_env()
 
 
 def test_refused_lm_kwargs_match_the_kit():
