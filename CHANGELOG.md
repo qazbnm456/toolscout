@@ -29,10 +29,16 @@ What the 1.12–1.25 range changes for toolscout, checked one by one:
 - **`ClaudeAgentLM` is a dspy engine** (1.17). toolscout constructs it with the model id only, so the
   removed connection kwargs don't reach it.
 - **`ScriptedInterpreter` step counts** (1.16): the offline forward tests needed no change.
+- **`RLMConfig.sandbox_sub_agents`** (1.16, default ON) is now set `False` in `agent.setup`. On, the
+  planner's code may `import dspy` and build Predict/ReAct/RLM sub-agents that run on the HOST, may be
+  handed the meta-tools, charge `max_llm_calls`, and record as ONE `sub_call` with no inner turns — which
+  breaks "the sandbox is the boundary", "one task = one trajectory", and `max_llm_calls` capping only
+  `llm_query`. Off, dspy drops the shim and the prompt omits the sub-agent paragraph. Pinned by
+  `test_setup_refuses_host_side_sub_agents`.
 
 ### Added — `export --sft-render adapter`: `sft_turns` as the exact request the planner was sent
 `rl_export.export_dataset(runs, sft_render="adapter")` (CLI: `toolscout export --sft-render adapter …`,
-module: `python -m toolscout.rl_export --sft-render adapter …`) passes through to rlm-harness 1.25's
+module: `python -m toolscout.rl_export … --sft-render adapter`, now argparse) passes through to rlm-harness 1.25's
 `export_sft_turns(render="adapter")`: one record per planner call — action turns AND the `extract`
 fallback — whose `messages` are rebuilt by dspy's own adapter and hash-`verified` against what was sent,
 with the raw completion as `assistant`. `TaskOutcome` is a flat pydantic model (no `$defs`), so no

@@ -176,6 +176,11 @@ def setup(config: ToolscoutConfig) -> ToolscoutConfig:
             max_output_chars=config.max_output_chars,
             # ONE attempt, no whole-RLM retry: max_iterations is a HARD budget, never multiplied.
             max_retries=1,
+            # No host-side dspy sub-agents built from model code (rlm-harness >= 1.16 defaults this ON).
+            # On, a nested Predict/ReAct/RLM runs on the HOST, may be handed the meta-tools, and records
+            # as ONE `sub_call` with no inner turns — breaking "the sandbox is the boundary", "one task =
+            # one trajectory", and `max_llm_calls` capping ONLY `llm_query` escalations.
+            sandbox_sub_agents=False,
         ),
         main_lm=main_lm,
         sub_lm=sub_lm,

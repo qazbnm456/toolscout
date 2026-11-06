@@ -143,3 +143,23 @@ def test_export_dataset_rejects_an_unknown_sft_render(tmp_path):
 
     with pytest.raises(ValueError, match="sft_render"):
         export_dataset({"r1": _run(tmp_path, "r1", {"answer": "13"})}, sft_render="chatml")
+
+
+def test_module_main_parses_the_flag_anywhere_and_rejects_bad_values(tmp_path, monkeypatch):
+    """`python -m toolscout.rl_export` uses argparse: the flag works after the positionals, and an
+    unknown render is a usage error (exit 2), never a stray output file or a traceback."""
+    import json
+
+    import pytest
+
+    from toolscout.rl_export import main
+
+    _run(tmp_path, "r1", {"answer": "13"})
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "ds.json"
+    main([str(tmp_path / "*.jsonl"), str(out), "--sft-render", "adapter"])
+    assert json.loads(out.read_text())["labels"]
+    assert not (tmp_path / "adapter").exists()
+    with pytest.raises(SystemExit) as ei:
+        main([str(tmp_path / "*.jsonl"), str(out), "--sft-render", "bogus"])
+    assert ei.value.code == 2

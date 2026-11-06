@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import glob
 import json
-import sys
 
 from rlm_harness.dataset import export_actions, export_sft_turns, run_label_bundle
 from rlm_harness.trace import (
@@ -170,18 +169,20 @@ def export_dataset(runs: dict[str, list[dict]], *, sft_render: str | None = None
     }
 
 
-def main() -> None:
-    argv = sys.argv[1:]
-    sft_render = None
-    if argv[:1] == ["--sft-render"] and len(argv) >= 2:
-        sft_render, argv = argv[1], argv[2:]
-    if len(argv) < 2:
-        print("usage: python -m toolscout.rl_export [--sft-render adapter] <trace-glob...> <out.json>")
-        raise SystemExit(2)
-    *globs, out = argv
-    paths = [p for g in globs for p in glob.glob(g)]
+def main(argv: list[str] | None = None) -> None:
+    import argparse
+
+    ap = argparse.ArgumentParser(prog="python -m toolscout.rl_export",
+                                 description="Export toolscout traces as a REWARD-FREE dataset bundle.")
+    ap.add_argument("trace", nargs="+", help="trace file glob(s)")
+    ap.add_argument("out", help="output json path")
+    ap.add_argument("--sft-render", choices=["adapter"], default=None,
+                    help="sft_turns as the exact request the planner's adapter sent (rlm-harness >= 1.25 traces)")
+    args = ap.parse_args(argv)
+    out = args.out
+    paths = [p for g in args.trace for p in glob.glob(g)]
     runs = load_runs(*paths)
-    bundle = export_dataset(runs, sft_render=sft_render)
+    bundle = export_dataset(runs, sft_render=args.sft_render)
     with open(out, "w", encoding="utf-8") as fh:
         json.dump(bundle, fh, ensure_ascii=False, indent=2, default=str)
     finalized = sum(1 for lab in bundle["labels"].values() if lab["finalized"])

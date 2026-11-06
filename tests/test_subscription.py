@@ -41,3 +41,17 @@ def test_sentinel_missing_sdk_wraps_error(monkeypatch):
     monkeypatch.setattr(rlm_harness, "ClaudeAgentLM", _boom, raising=False)
     with pytest.raises(ModuleNotFoundError, match="uv sync --extra subscription"):
         _maybe_subscription_lm(f"{SUBSCRIPTION_PREFIX}claude-sonnet-5")
+
+
+def test_setup_refuses_host_side_sub_agents(monkeypatch):
+    """rlm-harness >= 1.16 lets model code `import dspy` and build host-side sub-agents unless
+    `sandbox_sub_agents=False`; their inner turns never reach the trace. setup() must turn it off."""
+    import rlm_harness
+
+    from toolscout.agent import setup
+    from toolscout.config import ToolscoutConfig
+
+    seen = {}
+    monkeypatch.setattr(rlm_harness, "configure", lambda cfg, **kw: seen.setdefault("cfg", cfg))
+    setup(ToolscoutConfig(main_model="x", sub_model="y"))
+    assert seen["cfg"].sandbox_sub_agents is False and seen["cfg"].max_retries == 1
