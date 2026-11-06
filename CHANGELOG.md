@@ -12,6 +12,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Changed: rlm-harness 1.25.0 → 1.26.0; `TS_*_LM_KWARGS` refuse what the kit refuses
+`TS_ROOT_LM_KWARGS` / `TS_SUB_LM_KWARGS` are now checked at config time by the kit's own rule (`rlm_harness.config._refused_lm_kwargs`) instead of a copied list. It refuses every key that changes where a run goes or who it calls as: `api_base` (which, with no `base_url` set, silently sent the run to another endpoint), headers, `mock_response`, `engine`, and any `aws_`, `azure_` or `vertex_` key. The kit's other 1.26 additions (`final.outputs`, `parse_wrapped` on a step, `export_counterfactual_extracts`) are optional trace fields and a new exporter; the studio and eval ignore them.
+
 ### Added: `toolscout-synth` round 2, 25 templates that are harder on reasoning than on paging
 - **The world grows by seven servers:** `region_directory`, `supplier_registry` (contracts in the supplier's currency, with validity windows), `promo_calendar`, `returns_desk` and `support_desk`, plus the distractors `supplier_prospects` and `promo_drafts`. The new tables come from their own random stream, so every round-1 task is unchanged apart from `snapshot_sha256`; a test pins the round-1 records by digest.
 - **19 new templates and a level 3:** joins across up to four servers, currency conversion at the date's rate, filters whose values come from another server, stated tie rules, and `unsupported_partial`, where the decline has to be earned because the data looks close. Level 3 also extends `revenue_by_category`, `restock_shortlist` and `top_customer`. 627 tasks in all, 540 train and 87 held out; the newly held-out templates are `shortfall_cost`, `ticket_resolution`, `tier_share_shift` and `region_customer_pressure`.

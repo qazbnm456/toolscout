@@ -40,13 +40,6 @@ _DEFAULT_JUDGE_SYSTEM_PROMPT = (
 )
 
 
-# Keys a per-role LM kwargs passthrough may NOT set. rlm-harness's RLMConfig refuses the same set (it owns
-# them: WHERE a run went and what bounded it, which nothing records an override of); refusing here too
-# makes a bad TS_*_LM_KWARGS fail at config time, naming the variable, instead of mid-`solve`.
-# tests/test_config.py pins this set against the kit's, so a kit change to its list goes red here.
-LM_KWARGS_REFUSED = frozenset({"model", "api_key", "base_url", "custom_llm_provider", "timeout"})
-
-
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     return default if raw is None else raw.strip().lower() in _TRUTHY
@@ -64,11 +57,17 @@ def _env_lm_kwargs(name: str) -> dict[str, Any] | None:
                          f'{name}=\'{{"temperature": 0.7}}\'') from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{name} must be a JSON object of dspy.LM kwargs, got {type(parsed).__name__}")
-    refused = sorted(set(parsed) & LM_KWARGS_REFUSED)
+    # The kit owns the rule (exact keys plus the aws_/azure_/vertex_ prefixes) and refuses the same keys again
+    # in RLMConfig; asking it here makes a bad value fail at config time, naming the variable. rlm_harness.config
+    # is dspy-free, so this module stays dspy-free. It is a private kit name: tests/test_config.py goes red
+    # if it moves.
+    from rlm_harness.config import _refused_lm_kwargs
+
+    refused = _refused_lm_kwargs(parsed)
     if refused:
-        raise ValueError(
-            f"{name} may not set {refused}: the model comes from TS_ROOT_LM/TS_SUB_LM, the endpoint from "
-            "TS_BASE_URL/TS_API_KEY, and the request timeout from TS_REQUEST_TIMEOUT.")
+        why = "; ".join(f"{k}: {v}" for k, v in sorted(refused.items()))
+        raise ValueError(f"{name} may not set {sorted(refused)}. The model comes from TS_ROOT_LM/TS_SUB_LM, the "
+                         f"endpoint from TS_BASE_URL/TS_API_KEY, the request timeout from TS_REQUEST_TIMEOUT. {why}")
     return parsed
 
 

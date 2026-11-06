@@ -120,11 +120,19 @@ def test_lm_kwargs_and_request_timeout_from_env(monkeypatch):
             ToolscoutConfig.from_env()
 
 
-def test_refused_lm_kwargs_match_the_kit():
-    """toolscout refuses at config time what rlm-harness's RLMConfig refuses at configure time. If the kit
-    changes its list, this goes red so the two can't drift (it reads a private name on purpose)."""
-    from rlm_harness.config import _LM_KWARGS_REFUSED
+def test_lm_kwargs_refuse_what_the_kit_refuses(monkeypatch):
+    """The refusal is the kit's own rule, applied at config time: exact keys AND the aws_/azure_/vertex_
+    prefixes. An endpoint alias like `api_base` or an injected header must never reach the wire."""
+    import pytest
 
-    from toolscout.config import LM_KWARGS_REFUSED
+    from toolscout.config import ToolscoutConfig
 
-    assert set(_LM_KWARGS_REFUSED) == LM_KWARGS_REFUSED
+    monkeypatch.setenv("TS_ROOT_LM", "p")
+    monkeypatch.setenv("TS_SUB_LM", "s")
+    for key in ("api_base", "extra_headers", "headers", "mock_response", "aws_region_name", "azure_ad_token",
+                "vertex_project", "timeout", "model"):
+        monkeypatch.setenv("TS_SUB_LM_KWARGS", f'{{"{key}": "x"}}')
+        with pytest.raises(ValueError, match=f"TS_SUB_LM_KWARGS may not set.*{key}"):
+            ToolscoutConfig.from_env()
+    monkeypatch.setenv("TS_SUB_LM_KWARGS", '{"temperature": 0.7, "top_p": 0.9, "extra_body": {"top_k": 20}}')
+    assert ToolscoutConfig.from_env().sub_lm_kwargs["top_p"] == 0.9
