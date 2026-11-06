@@ -8,6 +8,9 @@ NUM = {"gold_kind": "number", "gold": 1654.6, "tolerance": 0.01}
 ID = {"gold_kind": "id", "gold": "CUS-0439", "tolerance": 0.0}
 SET = {"gold_kind": "id_set", "gold": ["SKU-4352", "SKU-6906"], "tolerance": 0.0}
 CC = {"gold_kind": "cannot_complete", "gold": {"cannot_complete": True}, "tolerance": 0.0}
+LAB = {"gold_kind": "label", "gold": "tents", "tolerance": 0.0, "choices": ["boots", "tents", "ropes"]}
+LSET = {"gold_kind": "label_set", "gold": ["Tiszor Vale", "Vibra Vale"], "tolerance": 0.0,
+        "choices": ["Andelgar Vale", "Tiszor Vale", "Vibra Vale"]}
 
 
 @pytest.mark.parametrize("task,answer,cc,passed,reason", [
@@ -40,6 +43,12 @@ CC = {"gold_kind": "cannot_complete", "gold": {"cannot_complete": True}, "tolera
     (SET, "SKU-4352 and SKU-6906. Not SKU-1111", False, False, "wrong_set"),   # strict by design
     (SET, "sku-6906 and SKU-4352", False, True, "ok"),
     (CC, "No tool exposes salaries.", True, True, "ok"),
+    (LAB, "tents", False, True, "ok"),
+    (LAB, "Tents earned the most, ahead of boots.", False, True, "ok"),
+    (LAB, "boots", False, False, "wrong_value"),
+    (LAB, "tent", False, False, "no_value_found"),
+    (LSET, "vibra vale, Tiszor Vale", False, True, "ok"),
+    (LSET, "Tiszor Vale", False, False, "wrong_set"),
     (CC, "120000", False, False, "missing_cannot_complete"),
 ])
 def test_check_reasons(task, answer, cc, passed, reason):

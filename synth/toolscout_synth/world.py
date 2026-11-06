@@ -214,3 +214,114 @@ def generate(seed: int = DEFAULT_SEED) -> dict[str, Any]:
 def dumps(value: Any) -> str:
     """The ONE serialization for snapshots: sorted keys, fixed separators, trailing newline."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
+
+
+EXT_VERSION = 1
+REASON_CODES = {"RSN-101": "arrived damaged", "RSN-102": "wrong item shipped", "RSN-103": "not as described",
+                "RSN-104": "arrived too late", "RSN-105": "changed mind", "RSN-106": "defective in use"}
+PRIORITIES = ["low", "normal", "high", "urgent"]
+
+
+def _clamp(d: _dt.date) -> _dt.date:
+    return min(d, _dt.date(YEAR, 12, 31))
+
+
+def generate_ext(seed: int, base: dict[str, Any]) -> dict[str, Any]:
+    """The round-2 tables, from their OWN random stream, so the base tables (and every task built only on
+    them) stay byte-identical. They join the base world by key: city, sku, order_id, customer_id,
+    employee_id, and the fx currencies."""
+    rng = random.Random(f"{seed}:ext:{EXT_VERSION}")
+    days = _days(YEAR)
+
+    # ── regions: 5 fictional regions of 2 cities each ─────────────────────────────────────────────
+    cities = sorted({c["city"] for c in base["customers"]} | {w["city"] for w in base["warehouses"]})
+    rng.shuffle(cities)
+    names = _unique_names(rng, 5, (2, 4), two_words=False)
+    regions = [{"region": f"{n}march" if i % 2 else f"{n} Vale", "cities": sorted(cities[2 * i:2 * i + 2])}
+               for i, n in enumerate(names)]
+    regions.sort(key=lambda r: r["region"])
+
+    # ── suppliers + supply contracts (unit_cost in the supplier's currency) + prospects (distractor) ─
+    currencies = sorted(base["fx"])
+    countries = _unique_names(rng, 6, (2, 4), two_words=False)
+    sup_ids = sorted(rng.sample(range(100, 1000), 24))
+    sup_names = _unique_names(rng, 40, (2, 3), two_words=False)
+    suppliers = [{"supplier_id": f"SUP-{n}", "name": f"{sup_names[i]} Supply", "country": rng.choice(countries),
+                  "currency": "CR" if i % 6 == 0 else rng.choice(currencies),
+                  "lead_time_days": rng.randrange(3, 46), "rating": rng.randrange(1, 6)}
+                 for i, n in enumerate(sup_ids)]
+
+    def rate_on(cur: str, day: str) -> float:
+        return 1.0 if cur == "CR" else base["fx"][cur][day]
+
+    contracts = []
+    for p in base["products"]:
+        for s in rng.sample(suppliers, rng.randrange(1, 4)):
+            factor = rng.randrange(35, 76) / 100
+            if rng.random() < 0.25:   # a mid-year renegotiation: two windows, two prices
+                cut = rng.choice(days[60:300])
+                windows = [(days[0], cut - _dt.timedelta(days=1)), (cut, days[-1])]
+            else:
+                windows = [(days[0], days[-1])]
+            for start, end in windows:
+                f = factor * rng.choice([0.9, 1.0, 1.1])
+                cost = round(p["list_price"] * f * rate_on(s["currency"], start.isoformat()), 2)
+                contracts.append({"sku": p["sku"], "supplier_id": s["supplier_id"], "unit_cost": cost,
+                                  "currency": s["currency"], "min_order_qty": rng.choice([1, 5, 10, 25]),
+                                  "valid_from": start.isoformat(), "valid_to": end.isoformat()})
+    contracts.sort(key=lambda c: (c["supplier_id"], c["sku"], c["valid_from"]))
+    prospects = [{"prospect_name": f"{sup_names[24 + i]} Trading", "sku": rng.choice(base["products"])["sku"],
+                  "quoted_unit_cost": rng.randrange(2, 300), "currency": rng.choice(currencies + ["CR"]),
+                  "status": "quote only, no contract"} for i in range(16)]
+
+    # ── promotions + drafts (distractor) ───────────────────────────────────────────────────────────
+    promotions = []
+    for i, code in enumerate(sorted(rng.sample(range(200, 1000), 40))):
+        start = rng.choice(days[:-25])
+        promotions.append({"promo_code": f"PRM-{code}", "category": CATEGORIES[i % len(CATEGORIES)],
+                           "start_date": start.isoformat(),
+                           "end_date": (start + _dt.timedelta(days=rng.randrange(3, 21))).isoformat(),
+                           "discount_pct": rng.choice([5, 10, 15, 20, 25])})
+    drafts = [{"draft_id": f"DRF-{i:03d}", "category": rng.choice(CATEGORIES),
+               "proposed_start": rng.choice(days).isoformat(), "discount_pct": rng.choice([10, 30, 40]),
+               "status": "proposed, never run"} for i in range(1, 21)]
+
+    # ── returns: full returns for `returned` orders, occasional partial ones on delivered orders ──────
+    returns, seq = [], 0
+    for o in base["orders"]:
+        if o["status"] == "returned":
+            lines = [(ln, ln["qty"]) for ln in o["lines"]]
+        elif o["status"] == "delivered" and rng.random() < 0.06:
+            ln = rng.choice(o["lines"])
+            lines = [(ln, rng.randrange(1, ln["qty"] + 1))]
+        else:
+            continue
+        processed = _clamp(_dt.date.fromisoformat(o["order_date"]) + _dt.timedelta(days=rng.randrange(3, 21)))
+        for ln, qty in lines:
+            seq += 1
+            returns.append({"return_id": f"RET-{seq:05d}", "order_id": o["order_id"], "sku": ln["sku"],
+                            "qty": qty, "refund_amount": qty * ln["unit_price"],
+                            "reason_code": rng.choice(sorted(REASON_CODES)), "processed_date": processed.isoformat()})
+    reason_codes = [{"reason_code": k, "description": v} for k, v in sorted(REASON_CODES.items())]
+
+    # ── support tickets: mostly assigned to Customer Care staff ────────────────────────────────────
+    care = [e["employee_id"] for e in base["employees"] if e["department"] == "Customer Care"]
+    others = [e["employee_id"] for e in base["employees"] if e["department"] != "Customer Care"]
+    tickets = []
+    for n in sorted(rng.sample(range(10000, 99999), 1500)):
+        opened = rng.choice(days)
+        closed = opened + _dt.timedelta(days=rng.randrange(0, 31))
+        tickets.append({"ticket_id": f"TCK-{n}", "customer_id": rng.choice(base["customers"])["customer_id"],
+                        "opened_date": opened.isoformat(),
+                        "closed_date": closed.isoformat() if rng.random() < 0.8 and closed.year == YEAR else None,
+                        "priority": rng.choices(PRIORITIES, weights=[30, 40, 20, 10])[0],
+                        "assigned_employee_id": rng.choice(care) if rng.random() < 0.85 else rng.choice(others)})
+
+    return {"regions": regions, "suppliers": suppliers, "contracts": contracts, "supplier_prospects": prospects,
+            "promotions": promotions, "promo_drafts": drafts, "returns": returns, "reason_codes": reason_codes,
+            "tickets": tickets, "meta_ext": {"ext_version": EXT_VERSION, "seed": seed}}
+
+
+def generate_full(seed: int = DEFAULT_SEED) -> dict[str, Any]:
+    base = generate(seed)
+    return {**base, **generate_ext(seed, base)}

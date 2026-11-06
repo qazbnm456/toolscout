@@ -14,6 +14,8 @@ the computation, so:
 - `id`: the FIRST id token, case-insensitive (`cus-0439` reads as `CUS-0439`); same `detail` keys.
 - `id_set`: the SET of all id tokens must equal the gold set, so naming an extra id fails (even "not
   SKU-1111"): a set answer cannot be read leniently without guessing. `detail` lists missing and extra.
+- `label`: the FIRST of the task's `choices` (a category or region name) named in the answer, case-insensitive.
+- `label_set`: the set of `choices` named must equal the gold set, as strictly as `id_set`.
 - `cannot_complete`: passes only when the run declined (`TaskOutcome.cannot_complete=True`).
 A run that declined a solvable task fails with `unexpected_cannot_complete`; a run with no answer fails
 with `no_outcome`.
@@ -63,6 +65,16 @@ def _ids(text: str) -> list[str]:
     return out
 
 
+def _labels(text: str, choices: list[str]) -> list[str]:
+    """The choices named in `text`, in order of first appearance (whole words, case-insensitive)."""
+    hits = []
+    for c in choices:
+        m = re.search(rf"(?<![\w-]){re.escape(c)}(?![\w-])", text, re.IGNORECASE)
+        if m:
+            hits.append((m.start(), c))
+    return [c for _, c in sorted(hits)]
+
+
 def check(task: dict, answer: str | None, *, cannot_complete: bool = False) -> CheckResult:
     """Compare a final `answer` (and the decline flag) with `task["gold"]` per `task["gold_kind"]`."""
     kind, gold = task["gold_kind"], task["gold"]
@@ -91,6 +103,20 @@ def check(task: dict, answer: str | None, *, cannot_complete: bool = False) -> C
             return CheckResult(False, "wrong_value", expected=gold, got=n, detail=detail)
         return CheckResult(False, "out_of_tolerance", expected=gold, got=n,
                            detail={**detail, "abs_diff": round(diff, 6), "tolerance": task.get("tolerance")})
+
+    if kind in ("label", "label_set"):
+        named = _labels(text, task["choices"])
+        if not named:
+            return CheckResult(False, "no_value_found", expected=gold, got=text)
+        if kind == "label":
+            detail = {"bare": len(named) == 1, "other_labels": named[1:], "gold_among_them": gold in named}
+            return CheckResult(named[0] == gold, "ok" if named[0] == gold else "wrong_value", expected=gold,
+                               got=named[0], detail=detail)
+        want, got = set(gold), set(named)
+        if got == want:
+            return CheckResult(True, "ok", expected=sorted(want), got=sorted(got))
+        return CheckResult(False, "wrong_set", expected=sorted(want), got=sorted(got),
+                           detail={"missing": sorted(want - got), "extra": sorted(got - want)})
 
     ids = _ids(text)
     if not ids:
@@ -129,6 +155,8 @@ def render_gold(task: dict) -> str:
         return f"{gold:.2f}"
     if kind == "id":
         return gold
-    if kind == "id_set":
+    if kind in ("id_set", "label_set"):
         return ", ".join(gold)
+    if kind == "label":
+        return gold
     return "The configured toolspace has no tool that provides this information."

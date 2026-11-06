@@ -52,8 +52,8 @@ def _scripted_run(tmp_path, task, max_iterations=15):
     from toolscout.rubric import default_rubric, rubric_to_meta
 
     tpl = TEMPLATES[task["template"]]
-    servers = list(tpl.servers) or [task["params"]["server"]]
-    tool_names = [x.split(":")[1] for x in tpl.tools]
+    servers = list(task["servers_required"]) or [task["params"]["server"]]
+    tool_names = [x.split(":")[1] for x in task["tools_required"]]
 
     def compute(tools, _variables):
         result = tpl.solve(lambda s, n, a: tools["call_tool"](server=s, tool=n, args=a), task["params"])
@@ -71,7 +71,7 @@ def _scripted_run(tmp_path, task, max_iterations=15):
     declined = task["gold_kind"] == "cannot_complete"
     steps.append(submit({"outcome": {
         "answer": render_gold(task), "summary": "computed over paginated tool results",
-        "servers_loaded": list(tpl.servers), "tools_used": tool_names, "cannot_complete": declined}}))
+        "servers_loaded": list(task["servers_required"]), "tools_used": tool_names, "cannot_complete": declined}}))
     turns.append({"reasoning": "submit", "code": "SUBMIT(outcome=...)"})
 
     configure(RLMConfig(main_model="x", sub_model="x", interpreter="mock", observe=False,
@@ -101,6 +101,7 @@ def test_reference_trajectory_through_the_rlm_loop(tmp_path, taskset, template):
     from toolscout.response import build_response
 
     task = next(t for t in taskset if t["template"] == template and t["level"] == max(TEMPLATES[template].levels))
+    assert len(task["servers_required"]) <= 4
     n_steps, events = _scripted_run(tmp_path, task)
     assert n_steps <= 12
     assembled = outcome_from_events(events)
@@ -110,7 +111,11 @@ def test_reference_trajectory_through_the_rlm_loop(tmp_path, taskset, template):
     ok_calls = {f"{e['payload']['server']}:{e['payload']['args']['tool']}" for e in events
                 if e["type"] == "tool_call" and e["payload"].get("tool") == "call_tool" and e["payload"]["ok"]}
     assert ok_calls == set(task["tools_required"])
-    start = next(e for e in events if e["type"] == "run_start")
-    assert json.dumps(task["gold"]) not in json.dumps(start["payload"])
+    meta = next(e for e in events if e["type"] == "run_start")["payload"]["meta"]
+    assert not {"gold", "params", "gold_kind"} & set(meta)
+    if task["gold_kind"] in ("id", "id_set", "label", "label_set"):   # distinctive enough to grep for
+        golds = [task["gold"]] if isinstance(task["gold"], str) else task["gold"]
+        rest = json.dumps({k: v for k, v in meta.items() if k not in ("task", "instructions")})
+        assert not any(g in rest for g in golds)
     status = build_response(assembled, events, task["id"]).status
     assert status == ("refused" if task["gold_kind"] == "cannot_complete" else "ok")

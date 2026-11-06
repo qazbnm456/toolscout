@@ -23,6 +23,8 @@
   - Run ids are OPAQUE by default (`opaque_run_id`). A readable id would label the template, the decline tasks and the held-out split inside exported training data.
   - The split is BY TEMPLATE, and `heldout_templates` is never trained on.
   - The data regenerates byte-for-byte (`toolscout-synth verify`). Change the generator or a template only together with a regeneration.
+  - Shipped tasks don't change. Add tables from their own random stream (`world.generate_ext`) and add templates or levels with their own seeds; never alter how an existing table or an existing template's levels are generated. Downstream training and held-out sets are keyed to those tasks, and `test_round_one_tasks_survive_round_two` pins them by digest.
+  - A reference solver must stay within toolscout's runtime rules, such as the repeat-call guard (at most 3 identical calls). The gold test runs every solver through the real `call_tool`, so a solver that breaks a rule fails there.
   - Fictional entities only, and no security/CVE domain.
   - Like eval, it lives out of the toolscout wheel, and `toolscout` must never import `toolscout_synth`.
 

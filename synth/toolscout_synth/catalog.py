@@ -23,12 +23,15 @@ from typing import Any
 
 from toolscout.catalog import Param, StaticCatalog, ToolSpec
 
-from .world import CATEGORIES, TIERS
+from .world import CATEGORIES, PRIORITIES, TIERS
 
 MAX_PAGE_SIZE = 50
-DISTRACTOR_SERVERS = ("product_archive", "demand_forecast", "order_sandbox", "staff_alumni")
+DISTRACTOR_SERVERS = ("product_archive", "demand_forecast", "order_sandbox", "staff_alumni",
+                      "supplier_prospects", "promo_drafts")
 TABLES = ("meta", "products", "archive_products", "warehouses", "stock", "forecast", "customers", "orders",
-          "sandbox_orders", "departments", "employees", "alumni", "projects", "timesheets", "fx")
+          "sandbox_orders", "departments", "employees", "alumni", "projects", "timesheets", "fx",
+          "meta_ext", "regions", "suppliers", "contracts", "supplier_prospects", "promotions", "promo_drafts",
+          "returns", "reason_codes", "tickets")
 
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 _WEEK = re.compile(r"^\d{4}-W(0[1-9]|[1-4]\d|5[0-3])$")
@@ -255,6 +258,107 @@ def catalog_from_world(world: dict[str, Any], *, distractors: bool = True) -> St
                  rate_history, "{currency, base, month, rates: {date: rate}}"),
         ])
 
+    # ── region_directory ──────────────────────────────────────────────────────────────────────────
+    servers["region_directory"] = (
+        "Sales regions and the cities each one covers.", [
+            tool("region_directory", "list_regions", "List regions with their cities.", [],
+                 lambda a: [dict(r) for r in w["regions"]], "list[{region, cities}]"),
+        ])
+
+    # ── supplier_registry ─────────────────────────────────────────────────────────────────────────
+    sup_ids = [x["supplier_id"] for x in w["suppliers"]]
+
+    def list_suppliers(a):
+        rows = w["suppliers"]
+        if a.get("country") is not None:
+            rows = [x for x in rows if x["country"] == a["country"]]
+        return _page(rows, a.get("page", 1), a.get("page_size", 25))
+
+    def list_contracts(a):
+        rows = w["contracts"]
+        if a.get("supplier_id") is not None:
+            rows = [c for c in rows if c["supplier_id"] == _choice("supplier_id", a["supplier_id"], sup_ids)]
+        if a.get("sku") is not None:
+            rows = [c for c in rows if c["sku"] == a["sku"]]
+        return _page(rows, a.get("page", 1), a.get("page_size", 25))
+
+    servers["supplier_registry"] = (
+        ("Contracted suppliers and their supply contracts. A contract fixes a unit_cost for one SKU in the "
+        "supplier's own currency, valid from valid_from to valid_to inclusive."), [
+            tool("supplier_registry", "list_suppliers",
+                 "List suppliers (supplier_id, name, country, currency, lead_time_days, rating).",
+                 [Param("country", "str", False, None, "filter by country"), *_pager()], list_suppliers, page_ret),
+            tool("supplier_registry", "get_supplier", "Fetch one supplier by supplier_id.",
+                 [Param("supplier_id", "str", True, None, "e.g. 'SUP-123'")],
+                 lambda a: _lookup(w["suppliers"], "supplier_id", a["supplier_id"], "supplier"), "dict"),
+            tool("supplier_registry", "list_contracts",
+                 "List supply contracts (sku, supplier_id, unit_cost, currency, min_order_qty, valid_from, "
+                 "valid_to), optionally filtered by supplier_id and/or sku.",
+                 [Param("supplier_id", "str", False, None, "filter by supplier"),
+                  Param("sku", "str", False, None, "filter by SKU"), *_pager()], list_contracts, page_ret),
+        ])
+
+    # ── promo_calendar ────────────────────────────────────────────────────────────────────────────
+    def list_promotions(a):
+        rows = w["promotions"]
+        if a.get("category") is not None:
+            rows = [x for x in rows if x["category"] == _choice("category", a["category"], CATEGORIES)]
+        if a.get("month") is not None:
+            m = _month(a["month"])
+            rows = [x for x in rows if x["start_date"][:7] <= m <= x["end_date"][:7]]
+        return list(rows)
+
+    servers["promo_calendar"] = (
+        ("Promotions that actually ran: promo_code, product category, start and end dates (inclusive) and the "
+        "advertised discount."), [
+            tool("promo_calendar", "list_promotions",
+                 "List promotions, optionally by category and/or a month they were running in.",
+                 [Param("category", "str", False, None, "a product category"),
+                  Param("month", "str", False, None, "'YYYY-MM'")], list_promotions, "list[dict]"),
+            tool("promo_calendar", "get_promotion", "Fetch one promotion by promo_code.",
+                 [Param("promo_code", "str", True, None, "e.g. 'PRM-412'")],
+                 lambda a: _lookup(w["promotions"], "promo_code", a["promo_code"], "promotion"), "dict"),
+        ])
+
+    # ── returns_desk ──────────────────────────────────────────────────────────────────────────────
+    def list_returns(a):
+        month = _month(a["month"])
+        rows = [r for r in w["returns"] if r["processed_date"].startswith(month)]
+        return _page(rows, a.get("page", 1), a.get("page_size", 25))
+
+    servers["returns_desk"] = (
+        ("Processed product returns: return_id, order_id, sku, qty returned, refund_amount in credits, reason_code "
+        "and processed_date."), [
+            tool("returns_desk", "list_returns", "List returns processed in a month.",
+                 [Param("month", "str", True, None, "'YYYY-MM' of the processed date"), *_pager()],
+                 list_returns, page_ret),
+            tool("returns_desk", "get_returns_for_order", "All returns recorded against one order.",
+                 [Param("order_id", "str", True, None, "e.g. 'ORD-000123'")],
+                 lambda a: [r for r in w["returns"] if r["order_id"] == a["order_id"]], "list[dict]"),
+            tool("returns_desk", "list_reason_codes", "List return reason codes and their meaning.", [],
+                 lambda a: [dict(r) for r in w["reason_codes"]], "list[dict]"),
+        ])
+
+    # ── support_desk ──────────────────────────────────────────────────────────────────────────────
+    def list_tickets(a):
+        month = _month(a["opened_month"])
+        rows = [t for t in w["tickets"] if t["opened_date"].startswith(month)]
+        if a.get("priority") is not None:
+            rows = [t for t in rows if t["priority"] == _choice("priority", a["priority"], PRIORITIES)]
+        return _page(rows, a.get("page", 1), a.get("page_size", 25))
+
+    servers["support_desk"] = (
+        ("Customer support tickets: ticket_id, customer_id, opened_date, closed_date (null while open), priority "
+        "and the assigned employee."), [
+            tool("support_desk", "list_tickets",
+                 f"List tickets opened in a month, optionally by priority (one of {PRIORITIES}).",
+                 [Param("opened_month", "str", True, None, "'YYYY-MM'"),
+                  Param("priority", "str", False, None, "ticket priority"), *_pager()], list_tickets, page_ret),
+            tool("support_desk", "get_ticket", "Fetch one ticket by ticket_id.",
+                 [Param("ticket_id", "str", True, None, "e.g. 'TCK-12345'")],
+                 lambda a: _lookup(w["tickets"], "ticket_id", a["ticket_id"], "ticket"), "dict"),
+        ])
+
     if distractors:
         def list_archived(a):
             return _page(w["archive_products"], a.get("page", 1), a.get("page_size", 25))
@@ -297,6 +401,17 @@ def catalog_from_world(world: dict[str, Any], *, distractors: bool = True) -> St
             "FORMER employees who have left, with their last department and leaving date.", [
                 tool("staff_alumni", "list_alumni", "List former employees.", _pager(), list_alumni,
                      page_ret),
+            ])
+
+        servers["supplier_prospects"] = (
+            "Price QUOTES from prospective suppliers. No contract exists; these are not supply terms.", [
+                tool("supplier_prospects", "list_prospect_quotes", "List quotes from prospective suppliers.", [],
+                     lambda a: [dict(x) for x in w["supplier_prospects"]], "list[dict]"),
+            ])
+        servers["promo_drafts"] = (
+            "DRAFT promotions that were proposed but never ran.", [
+                tool("promo_drafts", "list_draft_promotions", "List proposed promotions.", [],
+                     lambda a: [dict(x) for x in w["promo_drafts"]], "list[dict]"),
             ])
 
     return StaticCatalog(dict(sorted(servers.items())))

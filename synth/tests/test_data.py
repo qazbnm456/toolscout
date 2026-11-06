@@ -23,7 +23,9 @@ def test_committed_data_regenerates_byte_for_byte(capsys):
 def test_manifest_matches_the_taskset(taskset):
     m = _manifest()
     assert m["n_tasks"] == len(taskset) >= 100
-    assert m["heldout_templates"] == HELDOUT_TEMPLATES == ["fx_avg_order", "project_overrun"]
+    assert m["heldout_templates"] == HELDOUT_TEMPLATES == [
+        "fx_avg_order", "project_overrun", "region_customer_pressure", "shortfall_cost", "ticket_resolution",
+        "tier_share_shift"]
     assert {t["snapshot_sha256"] for t in taskset} == {m["snapshot_sha256"]}
     assert len({t["id"] for t in taskset}) == len(taskset)
     assert len({t["task"] for t in taskset}) == len(taskset)
@@ -38,7 +40,11 @@ def test_split_is_by_template(taskset):
 
 def test_every_template_has_tasks_and_only_known_gold_kinds(taskset):
     assert {t["template"] for t in taskset} == set(TEMPLATES)
-    assert {t["gold_kind"] for t in taskset} <= {"int", "number", "id", "id_set", "cannot_complete"}
+    assert {t["gold_kind"] for t in taskset} <= {"int", "number", "id", "id_set", "label", "label_set",
+                                                 "cannot_complete"}
+    for t in taskset:
+        if t["gold_kind"] in ("label", "label_set"):
+            assert set([t["gold"]] if t["gold_kind"] == "label" else t["gold"]) <= set(t["choices"]), t["id"]
 
 
 def test_no_security_domain_content():
@@ -56,7 +62,7 @@ def test_tool_names_are_globally_unique_and_distractors_toggle(catalog):
     names = [n for s in catalog.servers() for n in catalog.tool_names(s.name)]
     assert len(names) == len(set(names))
     servers = {s.name for s in catalog.servers()}
-    assert set(DISTRACTOR_SERVERS) <= servers and len(servers) == 12
+    assert set(DISTRACTOR_SERVERS) <= servers and len(servers) == 19
     lean = {s.name for s in build_catalog(distractors=False).servers()}
     assert lean == servers - set(DISTRACTOR_SERVERS)
 
@@ -78,3 +84,15 @@ def test_charged_price_differs_from_list_price_somewhere(world):
     price = {p["sku"]: p["list_price"] for p in world["products"]}
     lines = [ln for o in world["orders"] for ln in o["lines"]]
     assert sum(ln["unit_price"] != price[ln["sku"]] for ln in lines) > len(lines) // 3
+
+
+def test_round_one_tasks_survive_round_two(taskset):
+    """Round 2 added tables from their own random stream: every round-1 task is still there, unchanged."""
+    import hashlib
+
+    v1 = [t for t in taskset if t["template"] in ("revenue_by_category", "restock_shortlist", "top_customer",
+                                                  "unsupported_lookup", "project_overrun", "fx_avg_order")
+          and t["level"] <= 2]
+    assert len(v1) == 110
+    body = "".join(json.dumps({k: v for k, v in t.items() if k != "snapshot_sha256"}, sort_keys=True) for t in v1)
+    assert hashlib.sha256(body.encode()).hexdigest()[:16] == "a3ce6d8dd4f98975"   # sha256 of round 1's committed records

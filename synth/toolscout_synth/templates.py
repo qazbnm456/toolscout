@@ -31,15 +31,20 @@ _MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", 
 class Template:
     id: str
     split: str                      # "train" | "heldout"
-    gold_kind: str                  # "int" | "number" | "id" | "id_set" | "cannot_complete"
-    servers: tuple[str, ...]        # servers a correct solution loads
-    tools: tuple[str, ...]          # "server:tool" a correct solution calls
+    gold_kind: str                  # "int" | "number" | "id" | "id_set" | "label" | "label_set" | "cannot_complete"
+    # Servers / "server:tool"s a correct solution uses. None: derived per task from the calls the reference
+    # solver actually makes. `static_levels` limits the static lists to those levels (derived elsewhere).
+    servers: tuple[str, ...] | None
+    tools: tuple[str, ...] | None
     levels: tuple[int, ...]
     sample: Callable[[random.Random, dict, int], dict]     # (rng, world, level) -> params
     render: Callable[[dict], str]
     solve: Callable[[Call, dict], Any]
     accept: Callable[[Any], bool] = lambda gold: True     # reject degenerate instances
     tolerance: float = 0.0
+    static_levels: tuple[int, ...] | None = None
+    choices: Callable[[dict], list[str]] | None = None   # the label vocabulary, for label / label_set golds
+    per_level: int | None = None   # instances per level when the template has fewer distinct ones than the default
 
 
 def fetch_all(call: Call, server: str, tool: str, args: dict | None = None) -> list:
@@ -75,29 +80,50 @@ def _skus_in(call: Call, categories: list[str]) -> set[str]:
                                                             {"category": c})}
 
 
+def region_cities(call: Call, region: str) -> set[str]:
+    return set(next(r["cities"] for r in call("region_directory", "list_regions", {}) if r["region"] == region))
+
+
+def customers_in_region(call: Call, region: str, tier: str | None = None, cities: set[str] | None = None) -> set[str]:
+    ids: set[str] = set()
+    for city in sorted(cities if cities is not None else region_cities(call, region)):
+        args = {"city": city, **({"tier": tier} if tier else {})}
+        ids |= {c["customer_id"] for c in fetch_all(call, "customer_directory", "search_customers", args)}
+    return ids
+
+
 # ── 1. revenue_by_category (train) ────────────────────────────────────────────────────────────────
 
 def _rev_sample(rng, world, level):
     months, label = _period(level, rng)
-    return {"months": months, "period": label, "category": rng.choice(CATEGORIES), "hint": level == 1}
+    p = {"months": months, "period": label, "category": rng.choice(CATEGORIES), "hint": level == 1}
+    if level == 3:
+        p["region"] = rng.choice(world["regions"])["region"]
+    return p
 
 
 def _rev_render(p):
     hint = " Use the unit price actually charged on each order line." if p["hint"] else ""
+    where = (f" Count only orders from customers whose home city is in the {p['region']} region."
+             if "region" in p else "")
     return (f"What was the total revenue, in credits, from delivered orders placed in {p['period']}, "
-            f"counting only line items for products in the '{p['category']}' category?{hint} "
+            f"counting only line items for products in the '{p['category']}' category?{hint}{where} "
             f"Reply with only the number.")
 
 
 def _rev_solve(call, p):
     skus = _skus_in(call, [p["category"]])
+    who = customers_in_region(call, p["region"]) if "region" in p else None
     return sum(ln["qty"] * ln["unit_price"] for o in _delivered(call, p["months"])
-               for ln in o["lines"] if ln["sku"] in skus)
+               if who is None or o["customer_id"] in who for ln in o["lines"] if ln["sku"] in skus)
 
 
 # ── 2. restock_shortlist (train) ──────────────────────────────────────────────────────────────────
 
 def _rs_sample(rng, world, level):
+    if level == 3:
+        return {"region": rng.choice(world["regions"])["region"], "categories": rng.sample(CATEGORIES, 2),
+                "hint": False}
     wh = rng.choice(world["warehouses"])
     cats = rng.sample(CATEGORIES, level)
     return {"warehouse_name": wh["name"], "categories": cats, "hint": level == 1}
@@ -108,14 +134,22 @@ def _rs_render(p):
     which = (f"the '{cats[0]}' category" if len(cats) == 1
              else "the " + " or ".join(f"'{c}'" for c in cats) + " categories")
     hint = " Use actual stock on hand, not a forecast." if p["hint"] else ""
+    if "region" in p:
+        return (f"Which SKUs are at or below their reorder point at one or more warehouses located in the "
+                f"{p['region']} region, and belong to {which}? Reply with the SKUs only, comma-separated.")
     return (f"Which SKUs at the {p['warehouse_name']} warehouse are at or below their reorder point and belong "
             f"to {which}?{hint} Reply with the SKUs only, comma-separated.")
 
 
 def _rs_solve(call, p):
-    wid = next(w["warehouse_id"] for w in call("warehouse_inventory", "list_warehouses", {})
-               if w["name"] == p["warehouse_name"])
-    low = {s["sku"] for s in fetch_all(call, "warehouse_inventory", "stock_report", {"warehouse_id": wid})
+    whs = call("warehouse_inventory", "list_warehouses", {})
+    if "region" in p:
+        cities = region_cities(call, p["region"])
+        wids = [w["warehouse_id"] for w in whs if w["city"] in cities]
+    else:
+        wids = [next(w["warehouse_id"] for w in whs if w["name"] == p["warehouse_name"])]
+    low = {s["sku"] for wid in wids
+           for s in fetch_all(call, "warehouse_inventory", "stock_report", {"warehouse_id": wid})
            if s["qty_on_hand"] <= s["reorder_point"]}
     return sorted(low & _skus_in(call, p["categories"]))
 
@@ -125,18 +159,29 @@ def _rs_solve(call, p):
 def _tc_sample(rng, world, level):
     c = rng.choice(world["customers"])
     months, label = _period(level, rng)
+    if level == 3:
+        return {"region": rng.choice(world["regions"])["region"], "tier": c["tier"], "months": months,
+                "period": label}
     return {"city": c["city"], "tier": c["tier"], "months": months, "period": label}
 
 
 def _tc_render(p):
+    if "region" in p:
+        return (f"Among {p['tier']}-tier customers whose home city is in the {p['region']} region, which one "
+                f"spent the most on delivered orders placed in {p['period']}? Spend is the sum of quantity "
+                f"times charged unit price over their order lines. If two or more tie, give the lowest "
+                f"customer id. Reply with only the customer id.")
     return (f"Among {p['tier']}-tier customers whose home city is {p['city']}, which one spent the most on "
             f"delivered orders placed in {p['period']}? Spend is the sum of quantity times charged unit "
             f"price over their order lines. Reply with only the customer id.")
 
 
 def _tc_spend(call, p) -> dict[str, int]:
-    ids = {c["customer_id"] for c in fetch_all(call, "customer_directory", "search_customers",
-                                               {"city": p["city"], "tier": p["tier"]})}
+    if "region" in p:
+        ids = customers_in_region(call, p["region"], tier=p["tier"])
+    else:
+        ids = {c["customer_id"] for c in fetch_all(call, "customer_directory", "search_customers",
+                                                   {"city": p["city"], "tier": p["tier"]})}
     spend: dict[str, int] = {}
     for o in _delivered(call, p["months"]):
         if o["customer_id"] in ids:
@@ -149,7 +194,9 @@ def _tc_solve(call, p):
     spend = _tc_spend(call, p)
     if len(spend) < 2:
         return None
-    ranked = sorted(spend.items(), key=lambda kv: -kv[1])
+    ranked = sorted(spend.items(), key=lambda kv: (-kv[1], kv[0]))
+    if "region" in p:
+        return ranked[0][0]                                          # the task states the tie rule
     return ranked[0][0] if ranked[0][1] != ranked[1][1] else None   # a tie has no single answer
 
 
@@ -238,15 +285,15 @@ def _fx_solve(call, p):
 
 TEMPLATES: dict[str, Template] = {t.id: t for t in [
     Template("revenue_by_category", "train", "int", ("order_ledger", "product_catalog"),
-             ("order_ledger:list_orders", "product_catalog:list_products"), (1, 2),
-             _rev_sample, _rev_render, _rev_solve, accept=lambda g: g > 0),
+             ("order_ledger:list_orders", "product_catalog:list_products"), (1, 2, 3),
+             _rev_sample, _rev_render, _rev_solve, accept=lambda g: g > 0, static_levels=(1, 2)),
     Template("restock_shortlist", "train", "id_set", ("warehouse_inventory", "product_catalog"),
              ("warehouse_inventory:list_warehouses", "warehouse_inventory:stock_report",
-              "product_catalog:list_products"), (1, 2),
-             _rs_sample, _rs_render, _rs_solve, accept=lambda g: 1 <= len(g) <= 12),
+              "product_catalog:list_products"), (1, 2, 3),
+             _rs_sample, _rs_render, _rs_solve, accept=lambda g: 1 <= len(g) <= 12, static_levels=(1, 2)),
     Template("top_customer", "train", "id", ("customer_directory", "order_ledger"),
-             ("customer_directory:search_customers", "order_ledger:list_orders"), (1, 2),
-             _tc_sample, _tc_render, _tc_solve, accept=lambda g: g is not None),
+             ("customer_directory:search_customers", "order_ledger:list_orders"), (1, 2, 3),
+             _tc_sample, _tc_render, _tc_solve, accept=lambda g: g is not None, static_levels=(1, 2)),
     Template("unsupported_lookup", "train", "cannot_complete", (), (), (1,),
              _un_sample, _un_render, _un_solve),
     Template("project_overrun", "heldout", "id_set", ("project_registry", "timesheets"),
@@ -257,4 +304,7 @@ TEMPLATES: dict[str, Template] = {t.id: t for t in [
              (1, 2), _fx_sample, _fx_render, _fx_solve, accept=lambda g: g is not None, tolerance=0.01),
 ]}
 
+from .templates_r2 import R2_TEMPLATES
+
+TEMPLATES.update({t.id: t for t in R2_TEMPLATES})
 HELDOUT_TEMPLATES = sorted(t.id for t in TEMPLATES.values() if t.split == "heldout")
