@@ -1,0 +1,28 @@
+[project]
+name = "toolscout-synth"
+version = "0.1.0"
+description = "A deterministic, offline, gold-answer taskset for toolscout: fictional multi-server toolspace over committed snapshots, tasks whose answers are computed in code, and a pure answer check. Reward-free."
+requires-python = ">=3.11"
+# toolscout is a CORE dependency: the catalog is a toolscout StaticCatalog and the runner drives toolscout.cli.run.
+dependencies = [
+    "toolscout",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.uv.sources]
+toolscout = { workspace = true }
+
+[project.scripts]
+toolscout-synth = "toolscout_synth.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["toolscout_synth"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

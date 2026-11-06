@@ -1,0 +1,108 @@
+{
+  "files": {
+    "snapshots/alumni.json": "5d2b292a21b7d7510df65390d087a9bd5584451ff3f8b64cda1b7d1a189a8413",
+    "snapshots/archive_products.json": "cc8bd83e1f05e359b0d841a86fddb75df79bfab62dd9943c9ba3881e6ff59cad",
+    "snapshots/customers.json": "edb4ae0460c1d351517db78d3818137247732bca8f7218e82dc954617bd7a40e",
+    "snapshots/departments.json": "d1f5a0ae90e4f0b990e822e127dd67c62c3642f3c995a9aa256e5f3fde918b1a",
+    "snapshots/employees.json": "df6c978f891003b27e901e18c61a9a1d6e39874e21b1f7f27cb157bc5417ee05",
+    "snapshots/forecast.json": "6bbc2c5d7f93cafcb252938cad6c1ef4b7745b2d07e2fbeeefa030dd71c885dd",
+    "snapshots/fx.json": "74ad2ae0cdba6354e1f98cb963b0fe953e9a72a899fc6839dff76637a1918a04",
+    "snapshots/meta.json": "9ce5db47b24735b9a324704c2eda2334d7d90bdb8aa0799493349eae36937010",
+    "snapshots/orders.json": "11ee8a030abc2d01b73d06ffe5e6ecbfc4049ca5b8f0440a18e17738d6d2e2f6",
+    "snapshots/products.json": "d7558b9f1266eda427907dd196d116acc8de56f19a1a83c47744a137d21d955c",
+    "snapshots/projects.json": "f54cb9fa2319ab10f97ce3b4bafea5c44733a2ea9c7a34b673d25b3d850d07dd",
+    "snapshots/sandbox_orders.json": "9b1e2ca34a40c9224c6557c41283ec64bf9a87983575734635e647d75902da12",
+    "snapshots/stock.json": "08c037f66c9034984b041164c5b0fd8f618e4feb7819025aab55b62f016ca89f",
+    "snapshots/timesheets.json": "63ce9356ea5f58051de9d994c253f08fa1c6f9b48e1aa7f265db804633c13aa7",
+    "snapshots/warehouses.json": "9714f61b08a4ae46918b7691477c4e92c3bdbe0202986b6b255fa408178add29"
+  },
+  "generator_version": 1,
+  "heldout_templates": [
+    "fx_avg_order",
+    "project_overrun"
+  ],
+  "n_tasks": 110,
+  "per_level": 10,
+  "seed": 2031,
+  "snapshot_sha256": "379f02d3eb1a0eb8b6e3dfc7a36d9ba54a730129edd2bf0256e223d52c098815",
+  "tasks_per_template": {
+    "fx_avg_order": 20,
+    "project_overrun": 20,
+    "restock_shortlist": 20,
+    "revenue_by_category": 20,
+    "top_customer": 20,
+    "unsupported_lookup": 10
+  },
+  "taskset_sha256": "78bbfe686b097a9e849b3f12687d6c45ff53c8482b6e831ae8a63ae125ab9d78",
+  "templates": {
+    "fx_avg_order": {
+      "gold_kind": "number",
+      "levels": [
+        1,
+        2
+      ],
+      "servers": [
+        "customer_directory",
+        "order_ledger",
+        "fx_rates"
+      ],
+      "split": "heldout"
+    },
+    "project_overrun": {
+      "gold_kind": "id_set",
+      "levels": [
+        1,
+        2
+      ],
+      "servers": [
+        "project_registry",
+        "timesheets"
+      ],
+      "split": "heldout"
+    },
+    "restock_shortlist": {
+      "gold_kind": "id_set",
+      "levels": [
+        1,
+        2
+      ],
+      "servers": [
+        "warehouse_inventory",
+        "product_catalog"
+      ],
+      "split": "train"
+    },
+    "revenue_by_category": {
+      "gold_kind": "int",
+      "levels": [
+        1,
+        2
+      ],
+      "servers": [
+        "order_ledger",
+        "product_catalog"
+      ],
+      "split": "train"
+    },
+    "top_customer": {
+      "gold_kind": "id",
+      "levels": [
+        1,
+        2
+      ],
+      "servers": [
+        "customer_directory",
+        "order_ledger"
+      ],
+      "split": "train"
+    },
+    "unsupported_lookup": {
+      "gold_kind": "cannot_complete",
+      "levels": [
+        1
+      ],
+      "servers": [],
+      "split": "train"
+    }
+  }
+}

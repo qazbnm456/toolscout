@@ -12,6 +12,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Added — `toolscout-synth`: a deterministic offline taskset with checkable gold answers
+A new uv workspace member, `synth/`. It is NOT part of the toolscout wheel and nothing in toolscout imports it.
+- **The toolspace:** 12 fictional servers, 8 real and 4 look-alike distractors, served as a `StaticCatalog`
+  over committed data snapshots. Every list endpoint paginates, so a task needs a fetch loop plus filtering,
+  joining or aggregating in the REPL.
+- **The tasks:** 110 tasks from 6 templates, each gold answer computed by calling the same tools.
+  `fx_avg_order` and `project_overrun` are HELD OUT.
+- **The check:** a pure `check()` that returns pass/fail with a reason. It is reward-free: it reports a
+  fact and never touches a trace or an export.
+- **The runner:** `run_task()`, which is `cli.run(task_text, catalog=build_catalog(...))` followed by the
+  check. Only the task text reaches toolscout, so gold never lands in `run_start` meta.
+- **Offline tests:**
+  - the data regenerates byte-for-byte (`toolscout-synth verify`; also checked on 3.11 and 3.12);
+  - every gold reproduces through the real `call_tool` meta-tool, touching only the servers it declares;
+  - one scripted trajectory per template runs through the real dspy.RLM loop in ≤ 12 steps and passes
+    `check()` on the assembled outcome.
+
+  CI runs `synth/tests`.
+
 ### Changed — rlm-harness 1.11.2 → 1.25.0 (dspy 3.3.1 → 3.4.1; the kit caps dspy `>=3.4.1,<3.5.0`)
 The exact pin moves at the workspace root (it applies to `studio/` and `eval/`); `uv.lock` re-resolved.
 What the 1.12–1.25 range changes for toolscout, checked one by one:

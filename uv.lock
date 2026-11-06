@@ -15,6 +15,7 @@ members = [
     "toolscout",
     "toolscout-eval",
     "toolscout-studio",
+    "toolscout-synth",
 ]
 
 [[package]]
@@ -2437,6 +2438,26 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.29" },
 ]
 provides-extras = ["live", "subscription", "dev"]
+
+[[package]]
+name = "toolscout-synth"
+version = "0.1.0"
+source = { editable = "synth" }
+dependencies = [
+    { name = "toolscout" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
+    { name = "toolscout", editable = "." },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "tqdm"

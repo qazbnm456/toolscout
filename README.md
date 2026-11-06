@@ -119,7 +119,10 @@ uv run --group dev python -m pytest -q   # the package suite — fully offline (
 
 dspy-bearing paths use `DummyLM` + rlm-harness's offline forward harness or skip; the toolspace defaults to the
 built-in demo catalog. The `studio/` and `eval/` workspace members carry their own suites — see
-[`CLAUDE.md`](CLAUDE.md) for those commands and the invariants when editing.
+[`CLAUDE.md`](CLAUDE.md) for those commands and the invariants when editing. The `synth/` member
+(`toolscout-synth`) is a deterministic offline taskset with checkable gold answers over a fictional
+multi-server toolspace; see [`synth/README.md`](synth/README.md) (suite:
+`uv run --package toolscout-synth --extra dev python -m pytest synth/tests`).
 
 ## License
 

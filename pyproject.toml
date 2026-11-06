@@ -45,7 +45,7 @@ default-groups = ["dev", "subscription-sdk"]
 # `live` optional extra, so a harness-only install never pulls it. rlm-harness is pinned at the
 # workspace root and applies to every member.
 [tool.uv.workspace]
-members = ["studio", "eval"]
+members = ["studio", "eval", "synth"]
 
 [dependency-groups]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]

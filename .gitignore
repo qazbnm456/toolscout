@@ -25,3 +25,5 @@ toolspace.json
 
 # Claude Code local overrides (never commit)
 .claude/settings.local.json
+# toolscout-synth ships its taskset as committed data (the *.jsonl rule above is for run traces).
+!synth/toolscout_synth/data/taskset.jsonl
