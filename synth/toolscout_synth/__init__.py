@@ -7,12 +7,12 @@ reports a fact; using it for training is the downstream trainer's decision.
 
 from .catalog import DISTRACTOR_SERVERS, build_catalog, default_data_dir, load_world
 from .check import CheckResult, check, check_outcome, render_gold
-from .runner import SynthRun, run_task
+from .runner import SynthRun, opaque_run_id, run_task
 from .taskset import generate_all, load_taskset
 from .templates import HELDOUT_TEMPLATES, TEMPLATES
 
 __version__ = "0.1.0"
 
 __all__ = ["DISTRACTOR_SERVERS", "HELDOUT_TEMPLATES", "TEMPLATES", "CheckResult", "SynthRun", "build_catalog",
-           "check", "check_outcome", "default_data_dir", "generate_all", "load_taskset", "load_world", "render_gold",
+           "check", "check_outcome", "default_data_dir", "generate_all", "load_taskset", "load_world", "opaque_run_id", "render_gold",
            "run_task", "__version__"]

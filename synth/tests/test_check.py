@@ -14,7 +14,12 @@ CC = {"gold_kind": "cannot_complete", "gold": {"cannot_complete": True}, "tolera
     (INT, "47889", False, True, "ok"),
     (INT, "47,889 credits", False, True, "ok"),
     (INT, "47888", False, False, "wrong_value"),
-    (INT, "In March 2031 it was 47889", False, False, "ambiguous_answer"),
+    (INT, "In March 2031 it was 47889", False, True, "ok"),
+    (INT, "47889 CR (Q1 2031)", False, True, "ok"),
+    (INT, "47,889 credits from 212 delivered orders", False, True, "ok"),
+    (INT, "47 889", False, True, "ok"),
+    (INT, "Across 2031-03-01..2031-03-31: 47889", False, True, "ok"),
+    (INT, "212 delivered orders brought in 47,889", False, False, "wrong_value"),
     (INT, "no idea", False, False, "no_value_found"),
     (INT, "", False, False, "no_outcome"),
     (INT, None, False, False, "no_outcome"),
@@ -25,10 +30,15 @@ CC = {"gold_kind": "cannot_complete", "gold": {"cannot_complete": True}, "tolera
     (ID, "CUS-0439", False, True, "ok"),
     (ID, "The top spender is CUS-0439.", False, True, "ok"),
     (ID, "CUS-0001", False, False, "wrong_value"),
-    (ID, "CUS-0439 or CUS-0001", False, False, "ambiguous_answer"),
+    (ID, "cus-0439", False, True, "ok"),
+    (ID, "CUS-0439 (spent 2,894 CR) ahead of CUS-8657", False, True, "ok"),
+    (ID, "CUS-0001, not CUS-0439", False, False, "wrong_value"),
+    (NUM, "1654.6 VEL per order (based on 37 orders)", False, True, "ok"),
     (SET, "SKU-6906, SKU-4352", False, True, "ok"),
     (SET, "SKU-4352", False, False, "wrong_set"),
     (SET, "SKU-4352, SKU-6906, SKU-1111", False, False, "wrong_set"),
+    (SET, "SKU-4352 and SKU-6906. Not SKU-1111", False, False, "wrong_set"),   # strict by design
+    (SET, "sku-6906 and SKU-4352", False, True, "ok"),
     (CC, "No tool exposes salaries.", True, True, "ok"),
     (CC, "120000", False, False, "missing_cannot_complete"),
 ])
@@ -40,8 +50,14 @@ def test_check_reasons(task, answer, cc, passed, reason):
 def test_details_explain_the_miss():
     r = check(SET, "SKU-4352, SKU-1111")
     assert r.detail == {"missing": ["SKU-6906"], "extra": ["SKU-1111"]}
-    assert check(INT, "2031: 47889").detail == {"gold_among_them": True}
+    assert check(INT, "47889").detail == {"bare": True, "other_numbers": [], "gold_among_them": True}
+    ctx = check(INT, "47,889 credits from 212 delivered orders")
+    assert ctx.passed and ctx.detail["bare"] is False and ctx.detail["other_numbers"] == [212.0]
+    miss = check(INT, "212 delivered orders brought in 47,889")
+    assert not miss.passed and miss.got == 212 and miss.detail["gold_among_them"] is True
     assert check(NUM, "1655").detail["abs_diff"] == pytest.approx(0.4)
+    assert check(ID, "CUS-0439 ahead of CUS-8657").detail == {
+        "bare": False, "other_ids": ["CUS-8657"], "gold_among_them": True}
 
 
 def test_render_gold_round_trips_through_check(taskset):

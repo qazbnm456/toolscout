@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from toolscout_synth import run_task
+from toolscout_synth import opaque_run_id, run_task
 
 import toolscout.cli
 from toolscout.catalog import StaticCatalog
@@ -28,3 +28,17 @@ def test_a_failed_run_is_a_checked_failure(monkeypatch, taskset):
     task = taskset[0]
     monkeypatch.setattr(toolscout.cli, "run", lambda text, **kw: SimpleNamespace(outcome=None))
     assert run_task(task).check.reason == "no_outcome"
+
+
+def test_default_run_id_is_opaque_and_stable(monkeypatch, taskset):
+    """The run id lands in every trace event and the exported dataset, so it must not name the template
+    (which would label decline tasks and the held-out split in training data)."""
+    seen = {}
+    monkeypatch.setattr(toolscout.cli, "run",
+                        lambda text, **kw: seen.update(kw) or SimpleNamespace(outcome=None))
+    for task in taskset:
+        res = run_task(task)
+        assert seen["run_id"] == res.run_id == opaque_run_id(task)
+        assert task["template"] not in res.run_id and not any(c.isupper() for c in res.run_id)
+    assert opaque_run_id(taskset[0], "b15") != opaque_run_id(taskset[0], "b30")
+    assert len({opaque_run_id(t) for t in taskset}) == len(taskset)

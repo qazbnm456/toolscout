@@ -19,13 +19,18 @@ A new uv workspace member, `synth/`. It is NOT part of the toolscout wheel and n
   joining or aggregating in the REPL.
 - **The tasks:** 110 tasks from 6 templates, each gold answer computed by calling the same tools.
   `fx_avg_order` and `project_overrun` are HELD OUT.
-- **The check:** a pure `check()` that returns pass/fail with a reason. It is reward-free: it reports a
+- **The check:** a pure `check()` that returns pass/fail with a reason. It judges the computed value
+  (task period labels stripped, first number or id read) and reports answer format separately as
+  `detail.bare`, so a correct answer with context isn't scored as wrong. It is reward-free: it reports a
   fact and never touches a trace or an export.
 - **The runner:** `run_task()`, which is `cli.run(task_text, catalog=build_catalog(...))` followed by the
-  check. Only the task text reaches toolscout, so gold never lands in `run_start` meta.
+  check. Only the task text reaches toolscout, so gold never lands in `run_start` meta. The default run
+  id is opaque (`opaque_run_id`), because a readable one would label the template, decline tasks and the
+  held-out split inside exported training data.
 - **Offline tests:**
   - the data regenerates byte-for-byte (`toolscout-synth verify`; also checked on 3.11 and 3.12);
-  - every gold reproduces through the real `call_tool` meta-tool, touching only the servers it declares;
+  - every gold reproduces through the real `call_tool` meta-tool, touching only the servers it declares,
+    AND matches an independent derivation straight from the snapshot tables;
   - one scripted trajectory per template runs through the real dspy.RLM loop in ≤ 12 steps and passes
     `check()` on the assembled outcome.
 
