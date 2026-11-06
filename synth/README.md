@@ -36,7 +36,7 @@ The data also contains traps:
 
 Every list endpoint paginates, at most 50 items per page. That is what forces the RLM strategy: a task means looping over pages and then filtering, joining or aggregating in REPL code. Printed results cannot fit the REPL output cap.
 
-## Templates (first round)
+## Templates
 
 | Template | Split | Gold | Servers | Level 2 makes it harder by |
 | --- | --- | --- | --- | --- |
@@ -48,7 +48,6 @@ Every list endpoint paginates, at most 50 items per page. That is what forces th
 | `fx_avg_order` | **heldout** | number ±0.01 | customer_directory, order_ledger, fx_rates | a quarter instead of a month |
 
 - **Held out:** `fx_avg_order` and `project_overrun`. Never train on them. `MANIFEST.json` lists them under `heldout_templates`, and every task carries a `split` field.
-- **Levels are rough.** They are not calibrated against any model yet.
 - **Step budget:** each template has a reference strategy of 12 RLM steps or fewer: list servers, load them, describe the tools, ONE REPL step that loops the fetches and computes, then submit. The suite runs it through the real dspy.RLM loop. This shows the task fits the budget for a planner that writes the loop in one step. It does not show a given model will; that is what the GPU smoke test measures.
 
 ## Use
@@ -69,10 +68,7 @@ for task in load_taskset(data):
     res.run_id, res.check.passed, res.check.reason, res.check.detail, res.artifacts.trace_path
 ```
 
-**Keep run ids opaque.** The run id is written into every trace event, the response file and the exported
-dataset. A readable id such as `unsupported_lookup-L1-003` would label the template, the decline tasks and
-the held-out split inside training data. `opaque_run_id` is the default; keep the run id → task id map on
-your side.
+**Keep run ids opaque.** The run id is written into every trace event, the response file and the exported dataset. A readable id such as `unsupported_lookup-L1-003` would label the template, the decline tasks and the held-out split inside training data. `opaque_run_id` is the default; keep the run id → task id map on your side.
 
 `run_task` is `toolscout.cli.run(task["task"], catalog=build_catalog(data_dir), ...)` followed by `check_outcome`. Because it goes through `cli.run`, it never raises on a failed run.
 
@@ -81,8 +77,6 @@ your side.
 Each record in `taskset.jsonl` has these fields: `id`, `template`, `split`, `level`, `task`, `gold_kind`, `gold`, `tolerance`, `servers_required`, `tools_required`, `params`, `snapshot_sha256`, `generator_version`.
 
 `check()` judges the **computed value**; answer **format** is reported separately as `detail.bare`. The tasks ask for a bare value, but toolscout's planner is told to ground its answer in tool values, so a correct answer often carries context ("47,889 CR from 212 delivered orders"). For a number, the task's own period labels (`March 2031`, `Q1 2031`, ISO dates and weeks) are removed and the FIRST remaining number is read. For an id, the first id (case-insensitive). An id set must match exactly, so naming an extra id fails even in "not SKU-1111". To keep only clean-format trajectories, filter on `check.passed and check.detail.get("bare", True)`.
-
-The reasons it can return are listed below.
 
 **Pass:**
 
@@ -101,10 +95,10 @@ The reasons it can return are listed below.
 - `out_of_tolerance`: a number outside the tolerance. `detail.abs_diff` gives the gap.
 - `wrong_set`: the id set differs. `detail.missing` and `detail.extra` list the differences.
 
-## Known gaps (next round)
+## Known gaps
 
 - **The charged-price trap does not bite in `top_customer`.** Ranking by current list price picks the same customer in 20 of 20 tasks, because the price factors average out. It does bite in the revenue totals.
-- **The difficulty knob is coarse.** It is `level` per template plus a global `distractors` toggle on `build_catalog`. It is uncalibrated until the GPU smoke test gives solve rates.
+- **The difficulty knob is coarse.** It is `level` per template plus a global `distractors` toggle on `build_catalog`. It is not yet calibrated against measured solve rates.
 
 ## Shipping the data
 

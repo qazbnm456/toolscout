@@ -12,93 +12,39 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
-### Added — per-role sampling kwargs and a request timeout, from env
-- **`TS_ROOT_LM_KWARGS` / `TS_SUB_LM_KWARGS`:** a JSON object of extra `dspy.LM` kwargs per role (for
-  example `{"temperature": 0.7}`), passed to rlm-harness's `RLMConfig.main_lm_kwargs` / `sub_lm_kwargs`.
+### Changed: the agent guide is `AGENTS.md`, and there is no `CLAUDE.md`
+One guide now serves every agent tool, in the same layout as rlm-harness:
+- **`AGENTS.md`:** a short root guide, well under Codex's 32 KiB budget. It holds what the project is, the Verify gates (including the synth suite), the CLI-only rule, and which file to read before which kind of work.
+- **`docs/INVARIANTS.md`:** the invariants. The move corrected the trace version to `trace/v2` and added the rules for host-side sub-agents, per-role LM kwargs, and the `synth/` member.
+- **`docs/HANDOFF.md`:** the compaction rule, formerly `.claude/rules/handoff.md`.
+- **No `CLAUDE.md`, by design.** Claude Code reads `AGENTS.md` when a project has none, and a `CLAUDE.md` anywhere would replace it there. `tests/test_agents_md.py` fails if one appears, if `AGENTS.md` outgrows 32 KiB, or if one of its links breaks.
+
+### Added: per-role sampling kwargs and a request timeout, from env
+- **`TS_ROOT_LM_KWARGS` / `TS_SUB_LM_KWARGS`:** a JSON object of extra `dspy.LM` kwargs per role (for example `{"temperature": 0.7}`), passed to `RLMConfig.main_lm_kwargs` / `sub_lm_kwargs`.
 - **`TS_REQUEST_TIMEOUT`:** float seconds, passed to `RLMConfig.request_timeout_s`.
 
-Unset means the old behaviour. No temperature is sent at all today (dspy leaves an unset temperature out
-of the request), so the endpoint's own default applies, and the provider SDK's default timeout (600 s for
-OpenAI) applies. `model`, `api_key`, `base_url`, `custom_llm_provider` and `timeout` inside a kwargs
-object are refused at config time, naming the variable. That is the same set the kit refuses, and a test
-pins the two lists together. The sampling actually carried is recorded per run in the trace's
-`rlm_setup.lm` (rlm-harness >= 1.25). On a `claude-agent-sdk/` role the kwargs are ignored, with the
-kit's warning, because the SDK takes no sampling controls.
+Unset keeps the old behaviour: no temperature is sent (dspy leaves an unset temperature out of the request, so the endpoint's default applies), and the provider SDK's default timeout applies (600 s for OpenAI). `model`, `api_key`, `base_url`, `custom_llm_provider` and `timeout` inside a kwargs object are refused at config time with an error naming the variable; a test pins that set to the kit's. The sampling each LM actually carried is recorded in the trace's `rlm_setup.lm`. On a `claude-agent-sdk/` role the kwargs are ignored with a kit warning, because the SDK takes no sampling controls.
 
-Also fixed in the synth docs: `ToolscoutConfig` is frozen, so a per-budget config is
-`dataclasses.replace(cfg, max_iterations=15)`, not an assignment.
+### Added: `toolscout-synth`, a deterministic offline taskset with checkable gold answers
+A new uv workspace member, `synth/`. It is not part of the toolscout wheel, and toolscout never imports it.
+- **The toolspace:** 12 fictional servers (8 real, 4 look-alike distractors) served as a `StaticCatalog` over committed data snapshots. Every list endpoint paginates, so a task needs a fetch loop plus filtering, joining or aggregating in the REPL.
+- **The tasks:** 110 tasks from 6 templates, each gold answer computed by calling the same tools. `fx_avg_order` and `project_overrun` are held out.
+- **The check:** a pure `check()` that returns pass/fail with a reason. It judges the computed value and reports answer format separately as `detail.bare`, so a correct answer with context isn't scored as wrong. It reports a fact, never a reward, and never touches a trace or an export.
+- **The runner:** `run_task()` calls `cli.run(task_text, catalog=build_catalog(...))` and then the check. Only the task text reaches toolscout, so gold never lands in `run_start` meta. Run ids are opaque by default (`opaque_run_id`), because a readable one would label the template, the decline tasks and the held-out split inside exported training data.
+- **Offline tests, also in CI:** the data regenerates byte-for-byte (`toolscout-synth verify`) on 3.11 to 3.13; every gold reproduces through the real `call_tool` meta-tool and matches an independent derivation from the snapshot tables; one scripted trajectory per template runs through the real dspy.RLM loop in at most 12 steps and passes `check()`.
 
-### Added — `toolscout-synth`: a deterministic offline taskset with checkable gold answers
-A new uv workspace member, `synth/`. It is NOT part of the toolscout wheel and nothing in toolscout imports it.
-- **The toolspace:** 12 fictional servers, 8 real and 4 look-alike distractors, served as a `StaticCatalog`
-  over committed data snapshots. Every list endpoint paginates, so a task needs a fetch loop plus filtering,
-  joining or aggregating in the REPL.
-- **The tasks:** 110 tasks from 6 templates, each gold answer computed by calling the same tools.
-  `fx_avg_order` and `project_overrun` are HELD OUT.
-- **The check:** a pure `check()` that returns pass/fail with a reason. It judges the computed value
-  (task period labels stripped, first number or id read) and reports answer format separately as
-  `detail.bare`, so a correct answer with context isn't scored as wrong. It is reward-free: it reports a
-  fact and never touches a trace or an export.
-- **The runner:** `run_task()`, which is `cli.run(task_text, catalog=build_catalog(...))` followed by the
-  check. Only the task text reaches toolscout, so gold never lands in `run_start` meta. The default run
-  id is opaque (`opaque_run_id`), because a readable one would label the template, decline tasks and the
-  held-out split inside exported training data.
-- **Offline tests:**
-  - the data regenerates byte-for-byte (`toolscout-synth verify`; also checked on 3.11 and 3.12);
-  - every gold reproduces through the real `call_tool` meta-tool, touching only the servers it declares,
-    AND matches an independent derivation straight from the snapshot tables;
-  - one scripted trajectory per template runs through the real dspy.RLM loop in ≤ 12 steps and passes
-    `check()` on the assembled outcome.
+### Changed: rlm-harness 1.11.2 → 1.25.0 (dspy 3.3.1 → 3.4.1)
+The exact pin moves at the workspace root and applies to every member. The changes in that range that touch toolscout:
+- **The trace is `rlm-harness/trace/v2`.** The only difference from v1 is that `api_rounds` left `run_end.payload.usage` for its own event. Nothing here read that key, and v1 traces still load.
+- **New `rlm_setup`, `extract` and `api_rounds` events**, plus optional per-call fields on `main_step`. The studio skips them and its trajectory breakdown is unchanged with them present; new studio tests pin this.
+- **`payload_cause` gained `CAUSE_UNKNOWN`** for a payload with no `ok`. Every toolscout `record_tool_call` site already declares its outcome, so no count moves; `test_every_record_tool_call_site_declares_its_outcome` keeps it that way.
+- **`RLMConfig.sandbox_sub_agents` defaults ON in the kit, and toolscout sets it `False`.** On, the planner's code may build dspy sub-agents that run on the HOST, may be handed the meta-tools, and record as ONE `sub_call` with no inner turns. That breaks the sandbox boundary and "one task = one trajectory". Pinned by `test_setup_refuses_host_side_sub_agents`.
 
-  CI runs `synth/tests`.
+### Added: `export --sft-render adapter`, `sft_turns` as the exact request the planner was sent
+`rl_export.export_dataset(runs, sft_render="adapter")` (CLI: `toolscout export --sft-render adapter …`; module: `python -m toolscout.rl_export … --sft-render adapter`) passes through to rlm-harness's `export_sft_turns(render="adapter")`. It emits one record per planner call, action turns and the `extract` fallback alike, whose `messages` are rebuilt by dspy's own adapter and hash-`verified` against what was sent, with the raw completion as `assistant`. `TaskOutcome` is a flat pydantic model, so no `custom_types` is needed. Prefer it for SFT: the default `sft_turns` seeds every input with the `run_start` meta, which includes the rubric. The default shape is unchanged, the bundle stays reward-free, and only the adapter mode imports dspy. Traces recorded before rlm-harness 1.25 yield no adapter records.
 
-### Changed — rlm-harness 1.11.2 → 1.25.0 (dspy 3.3.1 → 3.4.1; the kit caps dspy `>=3.4.1,<3.5.0`)
-The exact pin moves at the workspace root (it applies to `studio/` and `eval/`); `uv.lock` re-resolved.
-What the 1.12–1.25 range changes for toolscout, checked one by one:
-- **Trace wire format is `rlm-harness/trace/v2`** (1.17). The only v1→v2 difference is `api_rounds`
-  leaving `run_end.payload.usage` for its own event; nothing here read that key, and v1 traces still load.
-  Doc/comment mentions of `trace/v1` now say v2 (the CLAUDE.md invariant text still says `trace/v1` —
-  left for the maintainer).
-- **New events `rlm_setup` (once per run), `extract` (the budget fallback call), `api_rounds`**, plus
-  optional per-call fields on `main_step`. The studio maps none of them (they fall through to `None`) and
-  its trajectory breakdown is unchanged with them present — pinned by new studio tests and checked on a
-  real 1.25 trace. The eval scorer reads only `tool_call`s plus the assembled outcome and is unaffected.
-- **`payload_cause` gained `CAUSE_UNKNOWN`** (1.24) for a payload with no `ok`. Every toolscout
-  `record_tool_call` site already declares its outcome (`ok` / `circuit_broken` / an endpoint string), so
-  no count moves; a new AST gate (`test_every_record_tool_call_site_declares_its_outcome`) keeps it so.
-- **`ClaudeAgentLM` is a dspy engine** (1.17). toolscout constructs it with the model id only, so the
-  removed connection kwargs don't reach it.
-- **`ScriptedInterpreter` step counts** (1.16): the offline forward tests needed no change.
-- **`RLMConfig.sandbox_sub_agents`** (1.16, default ON) is now set `False` in `agent.setup`. On, the
-  planner's code may `import dspy` and build Predict/ReAct/RLM sub-agents that run on the HOST, may be
-  handed the meta-tools, charge `max_llm_calls`, and record as ONE `sub_call` with no inner turns — which
-  breaks "the sandbox is the boundary", "one task = one trajectory", and `max_llm_calls` capping only
-  `llm_query`. Off, dspy drops the shim and the prompt omits the sub-agent paragraph. Pinned by
-  `test_setup_refuses_host_side_sub_agents`.
-
-### Added — `export --sft-render adapter`: `sft_turns` as the exact request the planner was sent
-`rl_export.export_dataset(runs, sft_render="adapter")` (CLI: `toolscout export --sft-render adapter …`,
-module: `python -m toolscout.rl_export … --sft-render adapter`, now argparse) passes through to rlm-harness 1.25's
-`export_sft_turns(render="adapter")`: one record per planner call — action turns AND the `extract`
-fallback — whose `messages` are rebuilt by dspy's own adapter and hash-`verified` against what was sent,
-with the raw completion as `assistant`. `TaskOutcome` is a flat pydantic model (no `$defs`), so no
-`custom_types` is needed; the offline forward tests assert `verified=True` for both call kinds. The
-default `sft_turns` shape is unchanged, the bundle stays reward-free, and only the adapter mode imports
-dspy. Traces recorded before 1.25 yield no adapter records (rlm-harness warns).
-
-### Fixed — `list_servers` / `describe_tools` recorded no `ok`, so every success read as a decline
-The three `record_tool_call` sites in `toolspace.py` for `list_servers` and `describe_tools` omitted
-`ok=`. `rlm_harness.trace.payload_cause` reads `payload.get("ok")`, and an absent key returns `None`
-(falsy), so it labels the event `CAUSE_INVALID` — a confident *decline*, not an unknown. Every successful
-ISL listing and every ITL disclosure was being miscounted, and the studio (which renders each tool event's
-`ok`) showed them as non-ok. Fixes, each site on its own merits: `list_servers` → `ok=True` (no failure
-path); `describe_tools` empty-names guard → `ok=False` (it genuinely IS a decline — now stated, not
-accidental); `describe_tools` main branch → `ok=bool(described)`, splitting an ITL hit (≥1 schema
-disclosed) from a miss (every named tool blocked by ISL or missing on a loaded server), which previously
-shared a payload shape. Additive within `trace/v1` (`ok` is an established field). No dependency change —
-the numbers are correct on the pinned rlm-harness 1.11.2. A new `tests/test_toolspace.py` case
-(`test_meta_tools_record_ok_cause`) locks the hit/miss cause discipline in, since 1.11.2 has no
-`CAUSE_UNKNOWN` guard against the next omission.
+### Fixed: `list_servers` / `describe_tools` recorded no `ok`, so every success read as a decline
+`payload_cause` reads `payload.get("ok")`, and on the kit then pinned an absent key counted as a decline. Every successful ISL listing and ITL disclosure was miscounted, and the studio showed them as non-ok. `list_servers` now records `ok=True`; `describe_tools` records `ok=False` for empty names and `ok=bool(described)` otherwise, which separates a hit (at least one schema disclosed) from a miss. `test_meta_tools_record_ok_cause` pins it. The lesson for any new `record_tool_call` site: always pass `ok` (or `circuit_broken` / an endpoint error).
 
 ## [0.2.3] - 2026-09-13
 
