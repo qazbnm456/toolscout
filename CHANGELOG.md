@@ -12,6 +12,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Added — per-role sampling kwargs and a request timeout, from env
+- **`TS_ROOT_LM_KWARGS` / `TS_SUB_LM_KWARGS`:** a JSON object of extra `dspy.LM` kwargs per role (for
+  example `{"temperature": 0.7}`), passed to rlm-harness's `RLMConfig.main_lm_kwargs` / `sub_lm_kwargs`.
+- **`TS_REQUEST_TIMEOUT`:** float seconds, passed to `RLMConfig.request_timeout_s`.
+
+Unset means the old behaviour. No temperature is sent at all today (dspy leaves an unset temperature out
+of the request), so the endpoint's own default applies, and the provider SDK's default timeout (600 s for
+OpenAI) applies. `model`, `api_key`, `base_url`, `custom_llm_provider` and `timeout` inside a kwargs
+object are refused at config time, naming the variable. That is the same set the kit refuses, and a test
+pins the two lists together. The sampling actually carried is recorded per run in the trace's
+`rlm_setup.lm` (rlm-harness >= 1.25). On a `claude-agent-sdk/` role the kwargs are ignored, with the
+kit's warning, because the SDK takes no sampling controls.
+
+Also fixed in the synth docs: `ToolscoutConfig` is frozen, so a per-budget config is
+`dataclasses.replace(cfg, max_iterations=15)`, not an assignment.
+
 ### Added — `toolscout-synth`: a deterministic offline taskset with checkable gold answers
 A new uv workspace member, `synth/`. It is NOT part of the toolscout wheel and nothing in toolscout imports it.
 - **The toolspace:** 12 fictional servers, 8 real and 4 look-alike distractors, served as a `StaticCatalog`

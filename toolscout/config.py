@@ -16,8 +16,10 @@ surface, like a fetched web page), so their rendered text is length-bounded (`ma
 
 from __future__ import annotations
 
+import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 _TRUTHY = frozenset({"1", "true", "yes", "on"})
 
@@ -37,9 +39,46 @@ _DEFAULT_JUDGE_SYSTEM_PROMPT = (
 )
 
 
+# Keys a per-role LM kwargs passthrough may NOT set. rlm-harness's RLMConfig refuses the same set (it owns
+# them: WHERE a run went and what bounded it, which nothing records an override of); refusing here too
+# makes a bad TS_*_LM_KWARGS fail at config time, naming the variable, instead of mid-`solve`.
+# tests/test_config.py pins this set against the kit's, so a kit change to its list goes red here.
+LM_KWARGS_REFUSED = frozenset({"model", "api_key", "base_url", "custom_llm_provider", "timeout"})
+
+
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     return default if raw is None else raw.strip().lower() in _TRUTHY
+
+
+def _env_lm_kwargs(name: str) -> dict[str, Any] | None:
+    """A per-role `dspy.LM` kwargs passthrough from a JSON-object env var (unset/blank → None)."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return None
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f'{name} is not valid JSON ({exc}); it must be a JSON object, e.g. '
+                         f'{name}=\'{{"temperature": 0.7}}\'') from exc
+    if not isinstance(parsed, dict):
+        raise ValueError(f"{name} must be a JSON object of dspy.LM kwargs, got {type(parsed).__name__}")
+    refused = sorted(set(parsed) & LM_KWARGS_REFUSED)
+    if refused:
+        raise ValueError(
+            f"{name} may not set {refused}: the model comes from TS_ROOT_LM/TS_SUB_LM, the endpoint from "
+            "TS_BASE_URL/TS_API_KEY, and the request timeout from TS_REQUEST_TIMEOUT.")
+    return parsed
+
+
+def _env_optional_float(name: str) -> float | None:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return None
+    value = float(raw)
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive number of seconds, got {raw!r}")
+    return value
 
 
 @dataclass(frozen=True)
@@ -93,6 +132,18 @@ class ToolscoutConfig:
     max_iterations: int = 45
     max_llm_calls: int = 8          # caps ONLY specialist (llm_query) escalations
     max_output_chars: int = 8_000   # head+tail char cap dspy.RLM applies to each REPL output
+    # Per-ROLE extra `dspy.LM` kwargs (sampling: temperature, top_p, seed, extra_body, ...), passed to
+    # rlm-harness's RLMConfig.main_lm_kwargs / sub_lm_kwargs. None = send nothing, so the SERVER's default
+    # sampling applies (dspy omits an unset temperature from the request). rlm-harness >= 1.25 records the
+    # sampling settings each LM actually carried in the trace's `rlm_setup.lm`. Ignored (with a kit
+    # warning) on a `claude-agent-sdk/` role, which takes no sampling controls. Excluded from the hash
+    # because a dict is unhashable; equality still compares them.
+    main_lm_kwargs: dict[str, Any] | None = field(default=None, hash=False)
+    sub_lm_kwargs: dict[str, Any] | None = field(default=None, hash=False)
+    # Per-HTTP-request timeout (seconds) for the planner/specialist LM calls → RLMConfig.request_timeout_s.
+    # None = the provider SDK's own default (600s for the OpenAI SDK). Raise it when a proxy in front of the
+    # model can take longer than that for one step (e.g. one that resamples an unusable reply).
+    request_timeout_s: float | None = None
 
     # ── Skills KB (progressive disclosure) ───────────────────────────────────────────────────────
     enable_skills: bool = True
@@ -159,5 +210,8 @@ class ToolscoutConfig:
             max_iterations=int(os.getenv("TS_MAX_ITERATIONS", "45")),
             max_llm_calls=int(os.getenv("TS_MAX_LLM_CALLS", "8")),
             max_output_chars=int(os.getenv("TS_MAX_OUTPUT_CHARS", "8000")),
+            main_lm_kwargs=_env_lm_kwargs("TS_ROOT_LM_KWARGS"),
+            sub_lm_kwargs=_env_lm_kwargs("TS_SUB_LM_KWARGS"),
+            request_timeout_s=_env_optional_float("TS_REQUEST_TIMEOUT"),
             enable_skills=_env_bool("TS_ENABLE_SKILLS", True),
         )

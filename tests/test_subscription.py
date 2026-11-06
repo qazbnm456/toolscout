@@ -55,3 +55,32 @@ def test_setup_refuses_host_side_sub_agents(monkeypatch):
     monkeypatch.setattr(rlm_harness, "configure", lambda cfg, **kw: seen.setdefault("cfg", cfg))
     setup(ToolscoutConfig(main_model="x", sub_model="y"))
     assert seen["cfg"].sandbox_sub_agents is False and seen["cfg"].max_retries == 1
+
+
+def test_setup_forwards_lm_kwargs_and_request_timeout(monkeypatch):
+    import rlm_harness
+
+    from toolscout.agent import setup
+    from toolscout.config import ToolscoutConfig
+
+    seen = {}
+    monkeypatch.setattr(rlm_harness, "configure", lambda cfg, **kw: seen.setdefault("cfg", cfg))
+    setup(ToolscoutConfig(main_model="x", sub_model="y", main_lm_kwargs={"temperature": 0.7},
+                          sub_lm_kwargs={"temperature": 0.2}, request_timeout_s=1800.0))
+    c = seen["cfg"]
+    assert c.main_lm_kwargs == {"temperature": 0.7} and c.sub_lm_kwargs == {"temperature": 0.2}
+    assert c.request_timeout_s == 1800.0
+
+
+def test_lm_kwargs_reach_the_built_dspy_lm():
+    """End to end through the REAL configure(): the kwargs land on the planner/specialist dspy.LM."""
+    import dspy
+
+    from toolscout.agent import setup
+    from toolscout.config import ToolscoutConfig
+
+    setup(ToolscoutConfig(main_model="p", sub_model="s", base_url="http://127.0.0.1:9/v1", api_key="k",
+                          main_lm_kwargs={"temperature": 0.7}, sub_lm_kwargs={"temperature": 0.3},
+                          request_timeout_s=1800.0))
+    main = dspy.settings.lm
+    assert main.kwargs["temperature"] == 0.7 and main.kwargs["timeout"] == 1800.0

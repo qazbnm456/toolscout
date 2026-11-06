@@ -54,6 +54,8 @@ Every list endpoint paginates, at most 50 items per page. That is what forces th
 ## Use
 
 ```python
+import dataclasses
+
 from toolscout.config import ToolscoutConfig
 from toolscout_synth import load_taskset, opaque_run_id, run_task
 
@@ -61,8 +63,8 @@ data = "path/to/data"            # default: the packaged toolscout_synth/data
 for task in load_taskset(data):
     if task["split"] != "train":
         continue
-    cfg = ToolscoutConfig.from_env()   # TS_* env: planner/specialist model, base_url, api key
-    cfg.max_iterations = 15
+    # TS_* env: planner/specialist model, base_url, api key, TS_ROOT_LM_KWARGS, TS_REQUEST_TIMEOUT, ...
+    cfg = dataclasses.replace(ToolscoutConfig.from_env(), max_iterations=15)   # the config is frozen
     res = run_task(task, data_dir=data, outdir="out/b15", run_id=opaque_run_id(task, "b15"), config=cfg)
     res.run_id, res.check.passed, res.check.reason, res.check.detail, res.artifacts.trace_path
 ```

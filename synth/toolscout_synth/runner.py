@@ -44,7 +44,8 @@ def run_task(task: dict, *, data_dir: str | None = None, outdir: str = "./output
     """Solve `task["task"]` over the synth toolspace and check the outcome against `task["gold"]`.
 
     `config` is a `toolscout.config.ToolscoutConfig` (default: `ToolscoutConfig.from_env()`, i.e. the TS_*
-    env); set its `max_iterations` per budget. `run_id` defaults to `opaque_run_id(task)`."""
+    env); for a budget use `dataclasses.replace(cfg, max_iterations=15)` (the config is frozen).
+    `run_id` defaults to `opaque_run_id(task)`."""
     from toolscout.cli import run
 
     run_id = run_id or opaque_run_id(task)

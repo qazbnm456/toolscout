@@ -86,3 +86,44 @@ def test_from_env_enable_judge_and_toolspace(monkeypatch):
     assert cfg.judge_model == "qwen/judge"
     assert cfg.toolspace_path == "./toolspace.json"
     assert cfg.max_iterations == 12
+
+
+def test_lm_kwargs_and_request_timeout_from_env(monkeypatch):
+    import pytest
+
+    from toolscout.config import ToolscoutConfig
+
+    monkeypatch.setenv("TS_ROOT_LM", "p")
+    monkeypatch.setenv("TS_SUB_LM", "s")
+    cfg = ToolscoutConfig.from_env()
+    assert cfg.main_lm_kwargs is None and cfg.sub_lm_kwargs is None and cfg.request_timeout_s is None
+    hash(cfg)   # still hashable with the dict-typed fields
+
+    monkeypatch.setenv("TS_ROOT_LM_KWARGS", '{"temperature": 0.7, "extra_body": {"top_k": 20}}')
+    monkeypatch.setenv("TS_SUB_LM_KWARGS", '{"temperature": 0.7}')
+    monkeypatch.setenv("TS_REQUEST_TIMEOUT", "1800")
+    cfg = ToolscoutConfig.from_env()
+    assert cfg.main_lm_kwargs == {"temperature": 0.7, "extra_body": {"top_k": 20}}
+    assert cfg.sub_lm_kwargs == {"temperature": 0.7} and cfg.request_timeout_s == 1800.0
+    hash(cfg)
+
+    for bad, match in (('{"timeout": 5}', "TS_ROOT_LM_KWARGS may not set"),
+                       ('{"base_url": "http://x"}', "may not set"),
+                       ("[1]", "JSON object"), ("{temperature: 0.7}", "not valid JSON")):
+        monkeypatch.setenv("TS_ROOT_LM_KWARGS", bad)
+        with pytest.raises(ValueError, match=match):
+            ToolscoutConfig.from_env()
+    monkeypatch.delenv("TS_ROOT_LM_KWARGS")
+    monkeypatch.setenv("TS_REQUEST_TIMEOUT", "0")
+    with pytest.raises(ValueError, match="TS_REQUEST_TIMEOUT"):
+        ToolscoutConfig.from_env()
+
+
+def test_refused_lm_kwargs_match_the_kit():
+    """toolscout refuses at config time what rlm-harness's RLMConfig refuses at configure time. If the kit
+    changes its list, this goes red so the two can't drift (it reads a private name on purpose)."""
+    from rlm_harness.config import _LM_KWARGS_REFUSED
+
+    from toolscout.config import LM_KWARGS_REFUSED
+
+    assert set(_LM_KWARGS_REFUSED) == LM_KWARGS_REFUSED

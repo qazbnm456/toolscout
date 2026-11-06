@@ -174,6 +174,9 @@ def setup(config: ToolscoutConfig) -> ToolscoutConfig:
             max_iterations=config.max_iterations,
             max_llm_calls=config.max_llm_calls,
             max_output_chars=config.max_output_chars,
+            main_lm_kwargs=config.main_lm_kwargs,
+            sub_lm_kwargs=config.sub_lm_kwargs,
+            request_timeout_s=config.request_timeout_s,
             # ONE attempt, no whole-RLM retry: max_iterations is a HARD budget, never multiplied.
             max_retries=1,
             # No host-side dspy sub-agents built from model code (rlm-harness >= 1.16 defaults this ON).
