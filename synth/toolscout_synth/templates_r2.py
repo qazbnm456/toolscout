@@ -460,7 +460,8 @@ def _pd_sample(rng, world, level):
 
 def _pd_render(p):
     cats = " or ".join(f"'{c}'" for c in p["categories"])
-    stocked = f" and are stocked (any quantity) at the {p['warehouse_name']} warehouse" if "warehouse_name" in p else ""
+    stocked = (f" and appear in the {p['warehouse_name']} warehouse's stock report (even at zero quantity)"
+               if "warehouse_name" in p else "")
     return (f"How many products in the {cats} categor{'y' if len(p['categories']) == 1 else 'ies'} have a current "
             f"list price more than {p['pct']}% above their list price in the archived 2029 price list{stocked}? "
             f"Count only SKUs that appear in both lists. Reply with only the number.")
@@ -542,6 +543,8 @@ def _tr_solve(call, p):
 
 
 # ── unsupported_partial (train, cannot_complete): the data looks like it should answer ────────────
+# Only MISSING FIELDS, never data outside a covered range: there a tool exists and returns empty, and
+# toolscout's planner is told to decline only when no suitable tool exists, so "0" would be defensible.
 
 def _up_sample(rng, world, level):
     if level == 1:
@@ -559,19 +562,18 @@ def _up_sample(rng, world, level):
         t = rng.choice(world["tickets"])
         return {"server": "support_desk",
                 "text": f"What satisfaction score did the customer give on support ticket {t['ticket_id']}?"}
-    kind = rng.choice(["week", "fx", "spend"])
-    if kind == "week":
-        e = rng.choice(world["employees"])
-        wk = rng.randrange(30, 53)
-        return {"server": "timesheets",
-                "text": f"How many hours did employee {e['employee_id']} ({e['name']}) log in week {YEAR}-W{wk:02d}?"}
-    if kind == "fx":
-        cur = rng.choice(sorted(world["fx"]))
-        return {"server": "fx_rates", "text": f"What was the exchange rate from credits to {cur} on {YEAR - 1}-12-"
-                                               f"{rng.randrange(1, 32):02d}?"}
-    c = rng.choice(world["customers"])
-    return {"server": "order_ledger",
-            "text": f"How much did customer {c['customer_id']} ({c['name']}) spend on delivered orders in {YEAR - 1}?"}
+    # Level 2: a neighbouring record exists and looks like it should carry the answer, but no field holds it.
+    kind = rng.choice(["ship_wh", "promo_used", "bin"])
+    if kind == "ship_wh":
+        o = rng.choice([o for o in world["orders"] if o["status"] == "delivered"])
+        return {"server": "order_ledger", "text": f"Which warehouse shipped order {o['order_id']}?"}
+    if kind == "promo_used":
+        o = rng.choice([o for o in world["orders"] if o["status"] == "delivered"])
+        return {"server": "order_ledger", "text": f"Which promotion code was applied to order {o['order_id']}?"}
+    s = rng.choice(world["stock"])
+    wh = next(w["name"] for w in world["warehouses"] if w["warehouse_id"] == s["warehouse_id"])
+    return {"server": "warehouse_inventory",
+            "text": f"In which storage bin is {s['sku']} kept at the {wh} warehouse?"}
 
 
 def _up_render(p):

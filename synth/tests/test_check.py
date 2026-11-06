@@ -30,6 +30,8 @@ LSET = {"gold_kind": "label_set", "gold": ["Tiszor Vale", "Vibra Vale"], "tolera
     (NUM, "1654.60", False, True, "ok"),
     (NUM, "1654.61", False, True, "ok"),
     (NUM, "1654.63", False, False, "out_of_tolerance"),
+    ({"gold_kind": "number", "gold": -1.2, "tolerance": 0.05}, "\u22121.2 pp (Q3 2031 vs Q2 2031)", False, True, "ok"),
+    ({"gold_kind": "number", "gold": -1.2, "tolerance": 0.05}, "\u20131.2", False, True, "ok"),
     (ID, "CUS-0439", False, True, "ok"),
     (ID, "The top spender is CUS-0439.", False, True, "ok"),
     (ID, "CUS-0001", False, False, "wrong_value"),

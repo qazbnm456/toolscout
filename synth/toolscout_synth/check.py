@@ -53,7 +53,7 @@ class CheckResult:
 
 
 def _numbers(text: str) -> list[float]:
-    text = _CONTEXT.sub(" ", text)
+    text = _CONTEXT.sub(" ", text.replace("\u2212", "-").replace("\u2013", "-"))   # Unicode minus / en dash
     return [float(re.sub(_SEP, "", m.group(0))) for m in _NUM.finditer(text)]
 
 

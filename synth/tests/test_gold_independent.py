@@ -263,13 +263,12 @@ def _all_fields(world):
 
 
 def test_unsupported_tasks_ask_for_data_the_world_lacks(taskset, world):
-    """A decline gold is only right if the data genuinely lacks the answer: no table has the field, and the
-    partial-data variants ask outside the covered range (timesheets W01-W26, fx and orders in 2031 only)."""
+    """A decline gold is only right if no field anywhere holds the answer (orders name no warehouse or promotion,
+    stock rows no bin)."""
     fields = _all_fields(world)
     assert not {f for f in fields if any(w in f for w in ("carrier", "tracking", "weight", "salary", "email",
-                                                          "shipping", "approv", "on_time", "satisf"))}
-    assert max(t["week"] for t in world["timesheets"]) == "2031-W26"
-    assert all(d.startswith("2031-") for cur in world["fx"].values() for d in cur)
-    assert all(o["order_date"].startswith("2031-") for o in world["orders"])
+                                                          "shipping", "approv", "on_time", "satisf", "bin"))}
+    order_fields = {k for o in world["orders"] for k in o} | {k for o in world["orders"] for ln in o["lines"] for k in ln}
+    assert not {f for f in order_fields if "warehouse" in f or "promo" in f}
     texts = [t["task"] for t in taskset if t["gold_kind"] == "cannot_complete"]
     assert len(texts) >= 30

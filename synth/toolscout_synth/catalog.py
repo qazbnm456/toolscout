@@ -1,8 +1,7 @@
 """The synth toolspace: fictional MCP-like servers over the committed world snapshots, as a `StaticCatalog`.
 
-Eight servers answer real questions; four DISTRACTORS (`product_archive`, `demand_forecast`,
-`order_sandbox`, `staff_alumni`) look like them but serve a different question, so picking the server
-(ISL) is part of the task. Their descriptions say honestly what they are. A planner that reads the index
+Thirteen servers answer real questions; six DISTRACTORS (`DISTRACTOR_SERVERS`) look like them but serve a
+different question, so picking the server (ISL) is part of the task. Their descriptions say honestly what they are. A planner that reads the index
 can avoid them; one that pattern-matches on names will not.
 
 Every list endpoint PAGINATES (`page_size` ≤ 50) and returns `{items, page, page_size, total_items,
@@ -420,6 +419,6 @@ def catalog_from_world(world: dict[str, Any], *, distractors: bool = True) -> St
 def build_catalog(data_dir: str | None = None, *, distractors: bool = True) -> StaticCatalog:
     """THE entry: the synth toolspace over the committed snapshots (default: the packaged data dir).
 
-    Pass it to `toolscout.cli.run(task, catalog=build_catalog(...))`. `distractors=False` drops the four
-    look-alike servers, a coarse difficulty knob."""
+    Pass it to `toolscout.cli.run(task, catalog=build_catalog(...))`. `distractors=False` drops the
+    look-alike servers in `DISTRACTOR_SERVERS`, a coarse difficulty knob."""
     return catalog_from_world(load_world(data_dir), distractors=distractors)

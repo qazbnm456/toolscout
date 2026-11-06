@@ -67,7 +67,7 @@
     "unsupported_lookup": 10,
     "unsupported_partial": 20
   },
-  "taskset_sha256": "86473329b5a86197e4ec4f44aae739be76121fd775ef9dabf6596067d6add2a6",
+  "taskset_sha256": "7bb7a2a09c5b436b4896530a179f01fe1ad48cb8cd1b5f78a903b9928ca3534f",
   "templates": {
     "city_refunds": {
       "gold_kind": "int",

@@ -39,7 +39,6 @@ The data also contains traps:
 - **Charged price vs. list price.** An order line's `unit_price` is what was charged, and differs from the current list price on more than a third of lines.
 - **Order status.** Orders that were not delivered are excluded by most questions.
 - **Contract windows and currencies.** A quarter of SKUs were renegotiated mid-year, so the valid contract depends on the date, and its cost must be converted to credits at that date's rate.
-- **Data that stops.** Timesheets end at week 26, and orders and rates cover 2031 only, so a question outside that range has no answer.
 
 Every list endpoint paginates, at most 50 items per page, so a task means looping over pages and then filtering, joining or aggregating in REPL code. Printed results cannot fit the REPL output cap.
 
@@ -64,7 +63,7 @@ Every list endpoint paginates, at most 50 items per page, so a task means loopin
 | `repeat_buyers` | train | int | count customers who ordered in at least k months of a quarter |
 | `price_drift` | train | int | compare current prices with the archived 2029 list |
 | `forecast_gap` | train | int | find SKUs above reorder point now but projected below it |
-| `unsupported_partial` | train | `cannot_complete` | decline although the data looks close: a missing field, or a date outside the data |
+| `unsupported_partial` | train | `cannot_complete` | decline although a neighbouring record looks like it holds the answer (no field does) |
 | `order_cheapest_suppliers` | train | id set | pick the cheapest valid contract per order line, in credits, with a tie rule |
 | `project_breadth` | train | id | rank employees by distinct projects, with a tie rule |
 | `top_return_reason` | train | id | rank reason codes by returned units |
@@ -128,6 +127,9 @@ Each record in `taskset.jsonl` has these fields: `id`, `template`, `split`, `lev
 
 - **The charged-price trap does not bite in `top_customer`.** Ranking by current list price picks the same customer in 20 of 20 tasks, because the price factors average out. It does bite in the revenue totals.
 - **Levels are not calibrated yet.** Level 3 adds a join, and the global `distractors` toggle on `build_catalog` changes server selection, but neither is tuned against measured solve rates.
+- **Tie rules decide many `project_breadth` and `ticket_assignee_leader` answers** (about two thirds and two fifths), so those templates largely test applying the stated rule.
+- **Two held-out pools are small:** `tier_share_shift` has 3 tasks and `region_customer_pressure` 4, so their pass rates are noisy.
+- **No out-of-range declines.** A question about data outside the covered range (week 40, 2030) has a tool that returns empty, and toolscout's planner is told to decline only when no suitable tool exists, so "0" would be a defensible answer. Decline golds therefore come only from fields that don't exist.
 - **Some tasks make many tool calls.** `city_refunds` resolves each refund's order individually, about 100 `get_order` calls for a quarter. They fit in one REPL loop, but they are slow if the planner makes them one step at a time.
 
 ## Shipping the data
