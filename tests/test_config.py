@@ -107,8 +107,8 @@ def test_lm_kwargs_and_request_timeout_from_env(monkeypatch):
     assert cfg.sub_lm_kwargs == {"temperature": 0.7} and cfg.request_timeout_s == 1800.0
     hash(cfg)
 
-    for bad, match in (('{"timeout": 5}', "TS_ROOT_LM_KWARGS may not set"),
-                       ('{"base_url": "http://x"}', "may not set"),
+    for bad, match in (('{"timeout": 5}', "TS_ROOT_LM_KWARGS.*timeout"),
+                       ('{"base_url": "http://x"}', "TS_ROOT_LM_KWARGS.*base_url"),
                        ("[1]", "JSON object"), ("{temperature: 0.7}", "not valid JSON")):
         monkeypatch.setenv("TS_ROOT_LM_KWARGS", bad)
         with pytest.raises(ValueError, match=match):
@@ -132,7 +132,7 @@ def test_lm_kwargs_refuse_what_the_kit_refuses(monkeypatch):
     for key in ("api_base", "extra_headers", "headers", "mock_response", "aws_region_name", "azure_ad_token",
                 "vertex_project", "timeout", "model"):
         monkeypatch.setenv("TS_SUB_LM_KWARGS", f'{{"{key}": "x"}}')
-        with pytest.raises(ValueError, match=f"TS_SUB_LM_KWARGS may not set.*{key}"):
+        with pytest.raises(ValueError, match=f"TS_SUB_LM_KWARGS.*{key}"):   # never the kit's wording
             ToolscoutConfig.from_env()
     monkeypatch.setenv("TS_SUB_LM_KWARGS", '{"temperature": 0.7, "top_p": 0.9, "extra_body": {"top_k": 20}}')
     assert ToolscoutConfig.from_env().sub_lm_kwargs["top_p"] == 0.9

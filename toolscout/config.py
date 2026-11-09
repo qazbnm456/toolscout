@@ -57,17 +57,16 @@ def _env_lm_kwargs(name: str) -> dict[str, Any] | None:
                          f'{name}=\'{{"temperature": 0.7}}\'') from exc
     if not isinstance(parsed, dict):
         raise ValueError(f"{name} must be a JSON object of dspy.LM kwargs, got {type(parsed).__name__}")
-    # The kit owns the rule (exact keys plus the aws_/azure_/vertex_ prefixes) and refuses the same keys again
-    # in RLMConfig; asking it here makes a bad value fail at config time, naming the variable. rlm_harness.config
-    # is dspy-free, so this module stays dspy-free. It is a private kit name: tests/test_config.py goes red
-    # if it moves.
-    from rlm_harness.config import _refused_lm_kwargs
+    # The kit owns the rule (exact keys plus the aws_/azure_/vertex_ prefixes). Validating through the PUBLIC
+    # RLMConfig constructor applies it at config time, naming the variable, without depending on a private kit
+    # name. rlm_harness.config is dspy-free, so this module stays dspy-free.
+    from rlm_harness.config import RLMConfig
 
-    refused = _refused_lm_kwargs(parsed)
-    if refused:
-        why = "; ".join(f"{k}: {v}" for k, v in sorted(refused.items()))
-        raise ValueError(f"{name} may not set {sorted(refused)}. The model comes from TS_ROOT_LM/TS_SUB_LM, the "
-                         f"endpoint from TS_BASE_URL/TS_API_KEY, the request timeout from TS_REQUEST_TIMEOUT. {why}")
+    try:
+        RLMConfig(main_model="-", sub_model="-", main_lm_kwargs=parsed)
+    except ValueError as exc:
+        raise ValueError(f"{name} is refused. The model comes from TS_ROOT_LM/TS_SUB_LM, the endpoint from "
+                         f"TS_BASE_URL/TS_API_KEY, the request timeout from TS_REQUEST_TIMEOUT. {exc}") from exc
     return parsed
 
 
