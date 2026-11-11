@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Added: `toolscout-synth` round 3, a level 4 and eight new templates
+A downstream pilot passed about 94% of train tasks with only 22% of tasks giving mixed outcomes over four samples, and was near ceiling on most held-out templates. Round 3 adds harder tasks for both uses.
+- **Level 4 on six round-2 templates** (`margin_by_supplier`, `order_cheapest_suppliers`, `restock_slow_supplier`, `return_rate`, `region_top_category`, `ticket_assignee_leader`): one more server-backed filter, conversion or rule, up to 5 servers. Ten more level-3 instances on nine train templates.
+- **Eight new templates at levels 3 and 4:** `promo_lift`, `open_ticket_backlog`, `net_margin_after_refunds`, `cross_dept_share_leader` and `unsupported_hard` (train); `renegotiation_impact`, `ticket_sla_miss` and `supplier_concentration` (held out). No train template computes a held-out template's core quantity.
+- **1069 tasks** (922 train, 147 held out). Every earlier record and the snapshots are byte-identical; tests pin both rounds by digest. New levels hang off the existing templates through a wrapper, so their earlier levels run the same code.
+- **Guards from the earlier rounds:** round-3 solvers fetch every rate through `fx_rates`; a ranking whose top ties is never sampled; round-3 golds must be spread (≥ 6 distinct per int or number level, ≥ 40% for ids); declines come only from fields no table holds.
+
 ### Fixed: synth's `fx_rates` now quotes CR, so CR-priced contracts can be compared
 Tasks that compare contract costs "in credits at that date's rates" include contracts priced in CR, and `fx_rates` listed only the foreign currencies. Agents asked for the CR rate, got an error, and consistently skipped those contracts. In a held-out evaluation, four `shortfall_cost` tasks each reproduced the same wrong total across models, budgets and samples, matching that reading exactly. `fx_rates` now lists CR at 1.0. Tasks, golds and snapshots are unchanged (the golds always used 1.0). The tasks whose gold depends on a CR contract, and whose earlier results may understate a model, are 16 of 20 `shortfall_cost`, 14 of 30 `restock_slow_supplier` and 11 of 30 `order_cheapest_suppliers`.
 

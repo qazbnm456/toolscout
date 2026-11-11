@@ -45,6 +45,7 @@ class Template:
     static_levels: tuple[int, ...] | None = None
     choices: Callable[[dict], list[str]] | None = None   # the label vocabulary, for label / label_set golds
     per_level: int | None = None   # instances per level when the template has fewer distinct ones than the default
+    level_counts: dict[int, int] | None = None   # per-level instance counts; overrides per_level for those levels
 
 
 def fetch_all(call: Call, server: str, tool: str, args: dict | None = None) -> list:
@@ -307,4 +308,8 @@ TEMPLATES: dict[str, Template] = {t.id: t for t in [
 from .templates_r2 import R2_TEMPLATES
 
 TEMPLATES.update({t.id: t for t in R2_TEMPLATES})
+
+from .templates_r3 import apply_round3
+
+apply_round3(TEMPLATES)
 HELDOUT_TEMPLATES = sorted(t.id for t in TEMPLATES.values() if t.split == "heldout")

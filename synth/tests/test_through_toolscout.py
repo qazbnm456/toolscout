@@ -101,7 +101,10 @@ def test_reference_trajectory_through_the_rlm_loop(tmp_path, taskset, template):
     from toolscout.response import build_response
 
     task = next(t for t in taskset if t["template"] == template and t["level"] == max(TEMPLATES[template].levels))
-    assert len(task["servers_required"]) <= 4
+    from toolscout_synth.templates_r3 import R3_TEMPLATES
+
+    round3 = template in {t.id for t in R3_TEMPLATES} or task["level"] == 4
+    assert len(task["servers_required"]) <= (5 if round3 else 4)
     n_steps, events = _scripted_run(tmp_path, task)
     assert n_steps <= 12
     assembled = outcome_from_events(events)

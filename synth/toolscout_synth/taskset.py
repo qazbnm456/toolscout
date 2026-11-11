@@ -47,7 +47,7 @@ def build_tasks(world: dict[str, Any], *, seed: int = DEFAULT_SEED, per_level: i
     for tid, t in TEMPLATES.items():
         for level in t.levels:
             seen: set[str] = set()
-            for i in range(t.per_level or per_level):
+            for i in range((t.level_counts or {}).get(level, t.per_level or per_level)):
                 for attempt in range(_MAX_ATTEMPTS):
                     rng = random.Random(f"{seed}:{tid}:{level}:{i}:{attempt}")
                     params = t.sample(rng, world, level)

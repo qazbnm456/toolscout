@@ -44,7 +44,7 @@ Every list endpoint paginates, at most 50 items per page, so a task means loopin
 
 ## Templates
 
-25 templates, 627 tasks (540 train, 87 held out). Most have three levels: level 2 widens the period or adds a category, and level 3 adds a filter that needs another server (usually a region, a tier, or a budget threshold). Where a question can tie, the task states the tie rule.
+33 templates, 1069 tasks (922 train, 147 held out). Level 2 widens the period or adds a category; level 3 adds a filter that needs another server (usually a region, a tier, or a budget threshold); level 4 stacks one more server-backed filter, conversion or rule on top, for up to 5 servers. Where a question can tie, the task states the tie rule, and from level 4 on a ranking whose top ties is never sampled, so the rule never decides the answer. Level 4 is meant for a 30-iteration budget.
 
 | Template | Split | Gold | What the planner has to do |
 | --- | --- | --- | --- |
@@ -73,10 +73,20 @@ Every list endpoint paginates, at most 50 items per page, so a task means loopin
 | `ticket_resolution` | **heldout** | number ±0.01 | average resolution days for a region's tickets |
 | `tier_share_shift` | **heldout** | number ±0.05 | change in the top tiers' revenue share between quarters |
 | `region_customer_pressure` | **heldout** | label | customers per warehouse by region |
+| `promo_lift` | train | number ±0.05 | revenue change during a promotion against the same number of days just before it (levels 3 and 4) |
+| `open_ticket_backlog` | train | int | tickets opened in a month still open at the end of a later day (levels 3 and 4) |
+| `net_margin_after_refunds` | train | int ±1 | a supplier's margin minus the margin lost on returned units (levels 3 and 4) |
+| `cross_dept_share_leader` | train | id | the employee with the largest share of hours on other departments' projects (levels 3 and 4) |
+| `unsupported_hard` | train | `cannot_complete` | decline: payment method, contact channel, warranty, account manager or tax id, which no table holds (L3) |
+| `renegotiation_impact` | **heldout** | int ±1 | signed cost change on lines priced under a renegotiated contract (levels 3 and 4) |
+| `ticket_sla_miss` | **heldout** | number ±0.05 | share of high or urgent tickets not closed within N days (levels 3 and 4) |
+| `supplier_concentration` | **heldout** | id | the supplier whose cheapest contracts carry a region's most revenue (levels 3 and 4) |
 
-- **Held out:** the six **heldout** templates above. Never train on them. `MANIFEST.json` lists them under `heldout_templates`, and every task carries a `split` field.
+Level 4 also extends `margin_by_supplier`, `order_cheapest_suppliers`, `restock_slow_supplier`, `return_rate`, `region_top_category` and `ticket_assignee_leader`, and nine train templates have 20 level-3 instances instead of 10.
+
+- **Held out:** the nine **heldout** templates above. Never train on them. `MANIFEST.json` lists them under `heldout_templates`, and every task carries a `split` field.
 - **Required servers per task:** each record lists the `servers_required` and `tools_required` its reference solution used, which vary by level.
-- **Step budget:** each template has a reference strategy of 12 RLM steps or fewer, using at most 4 servers: list servers, load them, describe the tools, ONE REPL step that loops the fetches and computes, then submit. The suite runs it through the real dspy.RLM loop. This shows the task fits the budget for a planner that writes the loop in one step, not that a given model will.
+- **Step budget:** each template has a reference strategy of 12 RLM steps or fewer, using at most 4 servers (5 at level 4 and in the level-3/4-only templates): list servers, load them, describe the tools, ONE REPL step that loops the fetches and computes, then submit. The suite runs it through the real dspy.RLM loop. This shows the task fits the budget for a planner that writes the loop in one step, not that a given model will.
 
 ## Use
 
@@ -127,7 +137,7 @@ Each record in `taskset.jsonl` has these fields: `id`, `template`, `split`, `lev
 
 - **The charged-price trap does not bite in `top_customer`.** Ranking by current list price picks the same customer in 20 of 20 tasks, because the price factors average out. It does bite in the revenue totals.
 - **Levels are not calibrated yet.** Level 3 adds a join, and the global `distractors` toggle on `build_catalog` changes server selection, but neither is tuned against measured solve rates.
-- **Tie rules decide many `project_breadth` and `ticket_assignee_leader` answers** (about two thirds and two fifths), so those templates largely test applying the stated rule.
+- **Tie rules decide many level-1 to level-3 `project_breadth` and `ticket_assignee_leader` answers** (about two thirds and two fifths), so those levels largely test applying the stated rule. Level 4 and the level-3/4-only templates never sample a tied top.
 - **Two held-out pools are small:** `tier_share_shift` has 3 tasks and `region_customer_pressure` 4, so their pass rates are noisy.
 - **No out-of-range declines.** A question about data outside the covered range (week 40, 2030) has a tool that returns empty, and toolscout's planner is told to decline only when no suitable tool exists, so "0" would be a defensible answer. Decline golds therefore come only from fields that don't exist.
 - **Some tasks make many tool calls.** `city_refunds` resolves each refund's order individually, about 100 `get_order` calls for a quarter. They fit in one REPL loop, but they are slow if the planner makes them one step at a time.

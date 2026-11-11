@@ -24,8 +24,8 @@ def test_manifest_matches_the_taskset(taskset):
     m = _manifest()
     assert m["n_tasks"] == len(taskset) >= 100
     assert m["heldout_templates"] == HELDOUT_TEMPLATES == [
-        "fx_avg_order", "project_overrun", "region_customer_pressure", "shortfall_cost", "ticket_resolution",
-        "tier_share_shift"]
+        "fx_avg_order", "project_overrun", "region_customer_pressure", "renegotiation_impact", "shortfall_cost",
+        "supplier_concentration", "ticket_resolution", "ticket_sla_miss", "tier_share_shift"]
     assert {t["snapshot_sha256"] for t in taskset} == {m["snapshot_sha256"]}
     assert len({t["id"] for t in taskset}) == len(taskset)
     assert len({t["task"] for t in taskset}) == len(taskset)
@@ -105,3 +105,49 @@ def test_every_contract_currency_has_a_rate(catalog, world):
     assert {c["currency"] for c in world["contracts"]} <= quoted
     cr = catalog.call("fx_rates", "rate_history", {"currency": "CR", "month": "2031-02"})["rates"]
     assert len(cr) == 28 and set(cr.values()) == {1.0}
+
+
+_R1 = ("revenue_by_category", "restock_shortlist", "top_customer", "unsupported_lookup", "project_overrun",
+       "fx_avg_order")
+_R2 = ("margin_by_supplier", "promo_window_revenue", "region_top_category", "return_rate", "ticket_assignee_leader",
+       "restock_slow_supplier", "city_refunds", "cross_dept_hours", "shortfall_cost", "repeat_buyers", "price_drift",
+       "forecast_gap", "ticket_resolution", "unsupported_partial", "order_cheapest_suppliers", "tier_share_shift",
+       "project_breadth", "top_return_reason", "region_customer_pressure")
+
+
+def _shipped_before_round3(t):
+    """Records that existed before round 3: rounds 1-2 templates, levels <= 3, instance index <= 009."""
+    return t["template"] in _R1 + _R2 and t["level"] <= 3 and int(t["id"].rsplit("-", 1)[1]) <= 9
+
+
+def test_round_two_tasks_survive_round_three(taskset):
+    """Round 3 appended levels, instances and templates: every earlier record is byte-identical, and the
+    world snapshots are untouched."""
+    import hashlib
+
+    from toolscout_synth import default_data_dir
+
+    before = [t for t in taskset if _shipped_before_round3(t)]
+    assert len(before) == 627
+    r2 = [t for t in before if not (t["template"] in _R1 and t["level"] <= 2)]
+    body = "".join(json.dumps({k: v for k, v in t.items() if k != "snapshot_sha256"}, sort_keys=True) for t in r2)
+    assert len(r2) == 517 and hashlib.sha256(body.encode()).hexdigest()[:16] == "af0d556787f67a9d"
+    with open(os.path.join(default_data_dir(), "MANIFEST.json"), encoding="utf-8") as fh:
+        assert json.load(fh)["snapshot_sha256"].startswith("c11a03d48c7f")
+
+
+def test_round_three_golds_are_spread(taskset):
+    """Per template and level, round-3 golds must not collapse: >= 6 distinct int/number golds (>= 5 on a
+    10-instance level), >= 40% distinct ids or id sets."""
+    from collections import defaultdict
+
+    groups = defaultdict(list)
+    for t in taskset:
+        if not _shipped_before_round3(t) and t["gold_kind"] not in ("label", "label_set", "cannot_complete"):
+            groups[(t["template"], t["level"], t["gold_kind"])].append(json.dumps(t["gold"], sort_keys=True))
+    for (tid, level, kind), golds in groups.items():
+        distinct = len(set(golds))
+        if kind in ("int", "number"):
+            assert distinct >= (6 if len(golds) >= 20 else 5), (tid, level, distinct)
+        else:
+            assert distinct >= 0.4 * len(golds), (tid, level, distinct)

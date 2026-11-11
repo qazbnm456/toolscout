@@ -6,9 +6,176 @@ into the committed gold and agree with itself there, but not here).
 
 import math
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 _NOT_R2 = object()
+_R3_NEW = {"promo_lift", "open_ticket_backlog", "net_margin_after_refunds", "cross_dept_share_leader",
+           "renegotiation_impact", "ticket_sla_miss", "supplier_concentration"}
+
+
+def _top(scores):
+    best = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+    assert len(best) == 1 or best[0][1] != best[1][1], "a round-3 ranking must have a unique top"
+    return best[0][0]
+
+
+def _derive_r3(t, w, p):
+    name = t["template"]
+    cat = {x["sku"]: x["category"] for x in w["products"]}
+    cust = {c["customer_id"]: c for c in w["customers"]}
+    reg = {c: r["region"] for r in w["regions"] for c in r["cities"]}
+    emp = {e["employee_id"]: e for e in w["employees"]}
+    owner = {x["project_code"]: x["owner_department"] for x in w["projects"]}
+    lead = {x["supplier_id"]: x["lead_time_days"] for x in w["suppliers"]}
+    orders = {o["order_id"]: o for o in w["orders"]}
+
+    def in_region(cid):
+        return reg[cust[cid]["city"]] == p["region"]
+
+    def months_of(o):
+        return o["order_date"][:7] in p["months"]
+
+    def delivered():
+        return [o for o in w["orders"] if o["status"] == "delivered" and months_of(o)]
+
+    def cheapest(sku, day, allowed=None):
+        c = sorted((x["unit_cost"] / _rate(w, x["currency"], day), x["supplier_id"]) for x in w["contracts"]
+                   if x["sku"] == sku and x["valid_from"] <= day <= x["valid_to"]
+                   and (allowed is None or allowed(x["supplier_id"])))
+        return c[0] if c else None
+
+    def returns_for(ids):
+        return [r for r in w["returns"] if r["order_id"] in ids]
+
+    def supplier_lines(who):
+        out = []
+        for o in delivered():
+            if who is not None and o["customer_id"] not in who:
+                continue
+            for ln in o["lines"]:
+                for c in w["contracts"]:
+                    if (c["supplier_id"] == p["supplier_id"] and c["sku"] == ln["sku"]
+                            and c["valid_from"] <= o["order_date"] <= c["valid_to"]):
+                        out.append((o, ln, ln["unit_price"] - c["unit_cost"] / _rate(w, c["currency"], o["order_date"])))
+        return out
+
+    if name == "margin_by_supplier":
+        who = {c for c, x in cust.items() if x["tier"] in ("gold", "platinum") and in_region(c)}
+        return math.floor(sum(ln["qty"] * u for _, ln, u in supplier_lines(who)) + 0.5)
+    if name == "net_margin_after_refunds":
+        who = {c for c, x in cust.items() if x["tier"] in ("gold", "platinum")} if "tiers" in p else None
+        lines = supplier_lines(who)
+        unit = {(o["order_id"], ln["sku"]): u for o, ln, u in lines}
+        tot = sum(ln["qty"] * u for _, ln, u in lines)
+        tot -= sum(r["qty"] * unit[(r["order_id"], r["sku"])] for r in returns_for({o["order_id"] for o, _, _ in lines})
+                   if (r["order_id"], r["sku"]) in unit)
+        return math.floor(tot + 0.5)
+    if name == "order_cheapest_suppliers":
+        out = set()
+        for oid in p["order_ids"]:
+            o = orders[oid]
+            for ln in o["lines"]:
+                b = cheapest(ln["sku"], o["order_date"], lambda s: lead[s] <= p["max_lead"])
+                if b:
+                    out.add(b[1])
+        return sorted(out)
+    if name == "restock_slow_supplier":
+        wids = {x["warehouse_id"] for x in w["warehouses"] if reg[x["city"]] == p["region"]}
+        low = {s["sku"] for s in w["stock"] if s["warehouse_id"] in wids and s["qty_on_hand"] <= s["reorder_point"]
+               and cat[s["sku"]] == p["category"]}
+        return sorted(k for k in low if (b := cheapest(k, p["day"])) and lead[b[1]] > p["max_lead"])
+    if name == "return_rate":
+        os_ = [o for o in w["orders"] if o["status"] in ("delivered", "returned") and months_of(o)
+               and in_region(o["customer_id"])]
+        sold = sum(ln["qty"] for o in os_ for ln in o["lines"] if cat[ln["sku"]] == p["category"])
+        back = sum(r["qty"] for r in returns_for({o["order_id"] for o in os_})
+                   if cat[r["sku"]] == p["category"] and r["reason_code"] == p["reason_code"])
+        return round(100 * back / sold, 1)
+    if name == "region_top_category":
+        os_ = [o for o in delivered() if cust[o["customer_id"]]["tier"] == p["tier"] and in_region(o["customer_id"])]
+        rev = defaultdict(int)
+        for o in os_:
+            for ln in o["lines"]:
+                rev[cat[ln["sku"]]] += ln["qty"] * ln["unit_price"]
+        for r in returns_for({o["order_id"] for o in os_}):
+            rev[cat[r["sku"]]] -= r["refund_amount"]
+        return _top(rev)
+    if name == "ticket_assignee_leader":
+        n = defaultdict(int)
+        for x in w["tickets"]:
+            e = emp.get(x["assigned_employee_id"])
+            if (e and e["department"] == "Customer Care" and x["priority"] == p["priority"]
+                    and x["opened_date"][:7] in p["months"] and in_region(x["customer_id"])
+                    and date.fromisoformat(x["opened_date"]).weekday() >= 5):
+                n[e["employee_id"]] += 1
+        return _top(n)
+    if name == "promo_lift":
+        pr = next(x for x in w["promotions"] if x["promo_code"] == p["promo_code"])
+        start, end = date.fromisoformat(pr["start_date"]), date.fromisoformat(pr["end_date"])
+        pre = start - (end - start) - timedelta(days=1)
+        during = before = 0
+        for o in w["orders"]:
+            if o["status"] != "delivered" or ("region" in p and not in_region(o["customer_id"])):
+                continue
+            d = date.fromisoformat(o["order_date"])
+            amt = sum(ln["qty"] * ln["unit_price"] for ln in o["lines"] if cat[ln["sku"]] == pr["category"])
+            if start <= d <= end:
+                during += amt
+            elif pre <= d < start:
+                before += amt
+        return round(100 * (during - before) / before, 1)
+    if name == "open_ticket_backlog":
+        return sum(1 for x in w["tickets"] if x["opened_date"][:7] == p["month"]
+                   and ("priority" not in p or x["priority"] == p["priority"])
+                   and ("region" not in p or in_region(x["customer_id"]))
+                   and (x["closed_date"] is None or x["closed_date"] > p["day"]))
+    if name == "cross_dept_share_leader":
+        tot, oth = defaultdict(int), defaultdict(int)
+        for x in w["timesheets"]:
+            e = emp[x["employee_id"]]
+            if x["week"] in p["weeks"] and e["department"] == p["department"] and (
+                    "office" not in p or e["office"] == p["office"]):
+                tot[e["employee_id"]] += x["hours"]
+                if owner[x["project_code"]] != p["department"]:
+                    oth[e["employee_id"]] += x["hours"]
+        return _top({e: oth[e] / h for e, h in tot.items() if h >= 20})
+    if name == "renegotiation_impact":
+        tot = 0.0
+        for o in w["orders"]:
+            if o["status"] != "delivered" or o["order_date"][:7] != p["month"]:
+                continue
+            for ln in o["lines"]:
+                if cat[ln["sku"]] != p["category"]:
+                    continue
+                ok = (lambda s: lead[s] <= p["max_lead"]) if "max_lead" in p else None
+                b = cheapest(ln["sku"], o["order_date"], ok)
+                if not b:
+                    continue
+                pair = sorted((c for c in w["contracts"] if c["sku"] == ln["sku"] and c["supplier_id"] == b[1]),
+                              key=lambda c: c["valid_from"])
+                if len(pair) == 2 and pair[1]["valid_from"] <= o["order_date"] <= pair[1]["valid_to"]:
+                    tot += ln["qty"] * (pair[1]["unit_cost"] - pair[0]["unit_cost"]) / _rate(w, pair[1]["currency"], o["order_date"])
+        return math.floor(tot + 0.5)
+    if name == "ticket_sla_miss":
+        months = {f"2031-{m:02d}" for m in range(3 * p["quarter"] - 2, 3 * p["quarter"] + 1)}
+        pool = [x for x in w["tickets"] if x["priority"] == p["priority"] and x["opened_date"][:7] in months
+                and in_region(x["customer_id"])
+                and ("care_only" not in p or emp.get(x["assigned_employee_id"], {}).get("department") == "Customer Care")]
+        late = sum(1 for x in pool if x["closed_date"] is None
+                   or (date.fromisoformat(x["closed_date"]) - date.fromisoformat(x["opened_date"])).days > p["days"])
+        return round(100 * late / len(pool), 1)
+    if name == "supplier_concentration":
+        credit = defaultdict(int)
+        for o in delivered():
+            c = cust[o["customer_id"]]
+            if not in_region(c["customer_id"]) or ("tier" in p and c["tier"] != p["tier"]):
+                continue
+            for ln in o["lines"]:
+                b = cheapest(ln["sku"], o["order_date"])
+                if b:
+                    credit[b[1]] += ln["qty"] * ln["unit_price"]
+        return _top(credit)
+    raise AssertionError(name)
 
 
 def _rate(w, cur, day):
@@ -191,6 +358,8 @@ def _derive_r2(t, w, p, delivered, cust, city_region, wh_by_name, product_cat, t
 
 def _derive(t, w):
     p = t["params"]
+    if p.get("_level") == 4 or t["template"] in _R3_NEW:
+        return _derive_r3(t, w, p)
     product_cat = {x["sku"]: x["category"] for x in w["products"]}
     delivered = [o for o in w["orders"] if o["status"] == "delivered"
                  and o["order_date"][:7] in p.get("months", [])]
@@ -249,7 +418,7 @@ def test_every_gold_matches_an_independent_derivation(taskset, world):
             continue
         assert _derive(t, world) == t["gold"], t["id"]
         checked += 1
-    assert checked >= 550
+    assert checked >= 940
 
 
 def _all_fields(world):
@@ -267,7 +436,8 @@ def test_unsupported_tasks_ask_for_data_the_world_lacks(taskset, world):
     stock rows no bin)."""
     fields = _all_fields(world)
     assert not {f for f in fields if any(w in f for w in ("carrier", "tracking", "weight", "salary", "email",
-                                                          "shipping", "approv", "on_time", "satisf", "bin"))}
+                                                          "shipping", "approv", "on_time", "satisf", "bin",
+                                                          "payment", "channel", "warranty", "manager", "tax"))}
     order_fields = {k for o in world["orders"] for k in o} | {k for o in world["orders"] for ln in o["lines"] for k in ln}
     assert not {f for f in order_fields if "warehouse" in f or "promo" in f}
     texts = [t["task"] for t in taskset if t["gold_kind"] == "cannot_complete"]

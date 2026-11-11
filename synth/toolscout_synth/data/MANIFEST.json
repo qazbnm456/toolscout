@@ -32,42 +32,53 @@
     "fx_avg_order",
     "project_overrun",
     "region_customer_pressure",
+    "renegotiation_impact",
     "shortfall_cost",
+    "supplier_concentration",
     "ticket_resolution",
+    "ticket_sla_miss",
     "tier_share_shift"
   ],
-  "n_tasks": 627,
+  "n_tasks": 1069,
   "per_level": 10,
   "seed": 2031,
   "snapshot_sha256": "c11a03d48c7f02efdaa24b99bbbd2e2e657bc31c85318ac7364702911dfdb812",
   "tasks_per_template": {
     "city_refunds": 30,
-    "cross_dept_hours": 30,
-    "forecast_gap": 30,
+    "cross_dept_hours": 40,
+    "cross_dept_share_leader": 40,
+    "forecast_gap": 40,
     "fx_avg_order": 20,
-    "margin_by_supplier": 30,
-    "order_cheapest_suppliers": 30,
-    "price_drift": 30,
-    "project_breadth": 30,
+    "margin_by_supplier": 50,
+    "net_margin_after_refunds": 40,
+    "open_ticket_backlog": 40,
+    "order_cheapest_suppliers": 50,
+    "price_drift": 40,
+    "project_breadth": 40,
     "project_overrun": 20,
+    "promo_lift": 40,
     "promo_window_revenue": 30,
     "region_customer_pressure": 4,
-    "region_top_category": 30,
-    "repeat_buyers": 30,
+    "region_top_category": 50,
+    "renegotiation_impact": 20,
+    "repeat_buyers": 40,
     "restock_shortlist": 30,
-    "restock_slow_supplier": 30,
-    "return_rate": 30,
-    "revenue_by_category": 30,
+    "restock_slow_supplier": 50,
+    "return_rate": 50,
+    "revenue_by_category": 40,
     "shortfall_cost": 20,
-    "ticket_assignee_leader": 30,
+    "supplier_concentration": 20,
+    "ticket_assignee_leader": 52,
     "ticket_resolution": 20,
+    "ticket_sla_miss": 20,
     "tier_share_shift": 3,
-    "top_customer": 30,
-    "top_return_reason": 30,
+    "top_customer": 40,
+    "top_return_reason": 40,
+    "unsupported_hard": 20,
     "unsupported_lookup": 10,
     "unsupported_partial": 20
   },
-  "taskset_sha256": "7bb7a2a09c5b436b4896530a179f01fe1ad48cb8cd1b5f78a903b9928ca3534f",
+  "taskset_sha256": "1b7d0a89abe899919c791bfeec4a058f4d3baf1fdf514bb5a859d4c981aeb6fe",
   "templates": {
     "city_refunds": {
       "gold_kind": "int",
@@ -90,6 +101,19 @@
         1,
         2,
         3
+      ],
+      "servers": [
+        "project_registry",
+        "staff_directory",
+        "timesheets"
+      ],
+      "split": "train"
+    },
+    "cross_dept_share_leader": {
+      "gold_kind": "id",
+      "levels": [
+        3,
+        4
       ],
       "servers": [
         "project_registry",
@@ -131,13 +155,43 @@
       "levels": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "servers": [
         "customer_directory",
         "fx_rates",
         "order_ledger",
+        "region_directory",
         "supplier_registry"
+      ],
+      "split": "train"
+    },
+    "net_margin_after_refunds": {
+      "gold_kind": "int",
+      "levels": [
+        3,
+        4
+      ],
+      "servers": [
+        "customer_directory",
+        "fx_rates",
+        "order_ledger",
+        "returns_desk",
+        "supplier_registry"
+      ],
+      "split": "train"
+    },
+    "open_ticket_backlog": {
+      "gold_kind": "int",
+      "levels": [
+        3,
+        4
+      ],
+      "servers": [
+        "customer_directory",
+        "region_directory",
+        "support_desk"
       ],
       "split": "train"
     },
@@ -146,7 +200,8 @@
       "levels": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "servers": [
         "fx_rates",
@@ -195,6 +250,21 @@
       ],
       "split": "heldout"
     },
+    "promo_lift": {
+      "gold_kind": "number",
+      "levels": [
+        3,
+        4
+      ],
+      "servers": [
+        "customer_directory",
+        "order_ledger",
+        "product_catalog",
+        "promo_calendar",
+        "region_directory"
+      ],
+      "split": "train"
+    },
     "promo_window_revenue": {
       "gold_kind": "int",
       "levels": [
@@ -226,15 +296,31 @@
       "levels": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "servers": [
         "customer_directory",
         "order_ledger",
         "product_catalog",
-        "region_directory"
+        "region_directory",
+        "returns_desk"
       ],
       "split": "train"
+    },
+    "renegotiation_impact": {
+      "gold_kind": "int",
+      "levels": [
+        3,
+        4
+      ],
+      "servers": [
+        "fx_rates",
+        "order_ledger",
+        "product_catalog",
+        "supplier_registry"
+      ],
+      "split": "heldout"
     },
     "repeat_buyers": {
       "gold_kind": "int",
@@ -269,11 +355,13 @@
       "levels": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "servers": [
         "fx_rates",
         "product_catalog",
+        "region_directory",
         "supplier_registry",
         "warehouse_inventory"
       ],
@@ -284,12 +372,14 @@
       "levels": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "servers": [
         "customer_directory",
         "order_ledger",
         "product_catalog",
+        "region_directory",
         "returns_desk"
       ],
       "split": "train"
@@ -323,12 +413,28 @@
       ],
       "split": "heldout"
     },
+    "supplier_concentration": {
+      "gold_kind": "id",
+      "levels": [
+        3,
+        4
+      ],
+      "servers": [
+        "customer_directory",
+        "fx_rates",
+        "order_ledger",
+        "region_directory",
+        "supplier_registry"
+      ],
+      "split": "heldout"
+    },
     "ticket_assignee_leader": {
       "gold_kind": "id",
       "levels": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "servers": [
         "customer_directory",
@@ -347,6 +453,20 @@
       "servers": [
         "customer_directory",
         "region_directory",
+        "support_desk"
+      ],
+      "split": "heldout"
+    },
+    "ticket_sla_miss": {
+      "gold_kind": "number",
+      "levels": [
+        3,
+        4
+      ],
+      "servers": [
+        "customer_directory",
+        "region_directory",
+        "staff_directory",
         "support_desk"
       ],
       "split": "heldout"
@@ -389,6 +509,14 @@
         "product_catalog",
         "returns_desk"
       ],
+      "split": "train"
+    },
+    "unsupported_hard": {
+      "gold_kind": "cannot_complete",
+      "levels": [
+        3
+      ],
+      "servers": [],
       "split": "train"
     },
     "unsupported_lookup": {
