@@ -92,13 +92,14 @@ def _derive_r3(t, w, p):
                    if cat[r["sku"]] == p["category"] and r["reason_code"] == p["reason_code"])
         return round(100 * back / sold, 1)
     if name == "region_top_category":
-        os_ = [o for o in delivered() if cust[o["customer_id"]]["tier"] == p["tier"] and in_region(o["customer_id"])]
+        wids = {x["warehouse_id"] for x in w["warehouses"] if reg[x["city"]] == p["region"]}
+        low = {x["sku"] for x in w["stock"] if x["warehouse_id"] in wids and x["qty_on_hand"] <= x["reorder_point"]}
         rev = defaultdict(int)
-        for o in os_:
-            for ln in o["lines"]:
-                rev[cat[ln["sku"]]] += ln["qty"] * ln["unit_price"]
-        for r in returns_for({o["order_id"] for o in os_}):
-            rev[cat[r["sku"]]] -= r["refund_amount"]
+        for o in delivered():
+            if cust[o["customer_id"]]["tier"] == p["tier"] and in_region(o["customer_id"]):
+                for ln in o["lines"]:
+                    if ln["sku"] in low:
+                        rev[cat[ln["sku"]]] += ln["qty"] * ln["unit_price"]
         return _top(rev)
     if name == "ticket_assignee_leader":
         n = defaultdict(int)

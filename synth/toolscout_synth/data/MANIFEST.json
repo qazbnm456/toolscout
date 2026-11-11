@@ -78,7 +78,7 @@
     "unsupported_lookup": 10,
     "unsupported_partial": 20
   },
-  "taskset_sha256": "1b7d0a89abe899919c791bfeec4a058f4d3baf1fdf514bb5a859d4c981aeb6fe",
+  "taskset_sha256": "67b40b5e948f973203a166c83909376ab330e1ed0c43330d267b332c10b799c8",
   "templates": {
     "city_refunds": {
       "gold_kind": "int",
@@ -304,7 +304,7 @@
         "order_ledger",
         "product_catalog",
         "region_directory",
-        "returns_desk"
+        "warehouse_inventory"
       ],
       "split": "train"
     },

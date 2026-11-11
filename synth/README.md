@@ -157,6 +157,8 @@ toolscout-synth verify [DIR]   # regenerate from the recorded seed; compare byte
 toolscout-synth gen [DIR]      # rewrite it (only when the generator or templates change)
 ```
 
+`gen --per-level N` sets the default instance count per level. Templates that fix their own count for a level (`per_level` or `level_counts`) keep it.
+
 Regeneration is byte-identical on CPython 3.11, 3.12 and 3.13, and the suite checks this.
 
 ## Tests

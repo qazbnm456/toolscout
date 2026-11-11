@@ -218,7 +218,9 @@ def _rr4_solve(call, p):
     return round(100 * back / sold, 1) if sold and back else None
 
 
-# region_top_category L4: quarter, region and tier, revenue net of refunds against those orders.
+# region_top_category L4: quarter, region and tier, only products low on stock somewhere in that region. A refund
+# rule was tried first and never changed the answer (refunds against delivered orders are too small), so the
+# accept rule now requires the filter to change the top category.
 def _rt4_sample(rng, world, level):
     months, label = _months(2, rng)
     return {"region": _region(rng, world), "months": months, "period": label,
@@ -226,24 +228,29 @@ def _rt4_sample(rng, world, level):
 
 
 def _rt4_render(p):
-    return (f"Which product category earned the most delivered revenue NET of refunds in {p['period']} from "
-            f"{p['tier']}-tier customers whose home city is in the {p['region']} region? Net revenue = the charged "
-            f"line totals of those delivered orders minus the refunds the returns desk recorded against those same "
-            f"orders, whenever processed. If categories tie, give the alphabetically first. Reply with only the "
-            f"category name.")
+    return (f"Counting only products that are currently at or below their reorder point at one or more warehouses "
+            f"located in the {p['region']} region, which product category earned the most delivered revenue in "
+            f"{p['period']} from {p['tier']}-tier customers whose home city is in that region? If categories tie, "
+            f"give the alphabetically first. Reply with only the category name.")
 
 
 def _rt4_solve(call, p):
+    cities = region_cities(call, p["region"])
+    wids = [w["warehouse_id"] for w in call("warehouse_inventory", "list_warehouses", {}) if w["city"] in cities]
+    low = {s["sku"] for wid in wids
+           for s in fetch_all(call, "warehouse_inventory", "stock_report", {"warehouse_id": wid})
+           if s["qty_on_hand"] <= s["reorder_point"]}
     who = customers_in_region(call, p["region"], tier=p["tier"])
     cat = {x["sku"]: x["category"] for x in fetch_all(call, "product_catalog", "list_products")}
-    orders = [o for o in _delivered(call, p["months"]) if o["customer_id"] in who]
-    rev = defaultdict(int)
-    for o in orders:
-        for ln in o["lines"]:
-            rev[cat[ln["sku"]]] += ln["qty"] * ln["unit_price"]
-    for r in _returns_against(call, p["months"], {o["order_id"] for o in orders}):
-        rev[cat[r["sku"]]] -= r["refund_amount"]
-    return _unique_top(dict(rev))
+    every, kept = defaultdict(int), defaultdict(int)
+    for o in _delivered(call, p["months"]):
+        if o["customer_id"] in who:
+            for ln in o["lines"]:
+                every[cat[ln["sku"]]] += ln["qty"] * ln["unit_price"]
+                if ln["sku"] in low:
+                    kept[cat[ln["sku"]]] += ln["qty"] * ln["unit_price"]
+    top = _unique_top(dict(kept))
+    return top if top is not None and top != _unique_top(dict(every)) else None   # the filter must matter
 
 
 # ticket_assignee_leader L4: quarter, region, priority; weekend-opened tickets only.
@@ -311,7 +318,7 @@ def _pl_solve(call, p):
             during += amount
         elif pre_start <= d < start:
             before += amount
-    return round(100 * (during - before) / before, 1) if before and during else None
+    return round(100 * (during - before) / before, 1) if before >= 500 and during else None   # >= 500 CR before
 
 
 # open_ticket_backlog (train, int): tickets opened in month M still open at the end of day D in month M+1.
