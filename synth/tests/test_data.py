@@ -96,3 +96,12 @@ def test_round_one_tasks_survive_round_two(taskset):
     assert len(v1) == 110
     body = "".join(json.dumps({k: v for k, v in t.items() if k != "snapshot_sha256"}, sort_keys=True) for t in v1)
     assert hashlib.sha256(body.encode()).hexdigest()[:16] == "a3ce6d8dd4f98975"   # sha256 of round 1's committed records
+
+
+def test_every_contract_currency_has_a_rate(catalog, world):
+    """A value a task needs must be reachable through a tool, never an implicit constant. Contracts priced in
+    CR are compared "at that date's rates"; when fx_rates had no CR, agents skipped those contracts."""
+    quoted = set(catalog.call("fx_rates", "list_currencies", {}))
+    assert {c["currency"] for c in world["contracts"]} <= quoted
+    cr = catalog.call("fx_rates", "rate_history", {"currency": "CR", "month": "2031-02"})["rates"]
+    assert len(cr) == 28 and set(cr.values()) == {1.0}

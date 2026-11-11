@@ -239,16 +239,22 @@ def catalog_from_world(world: dict[str, Any], *, distractors: bool = True) -> St
         ])
 
     # ── fx_rates ──────────────────────────────────────────────────────────────────────────────────
-    currencies = sorted(w["fx"])
+    # CR itself is quoted at 1.0. Contracts can be priced in CR, and a task that converts costs "at that date's
+    # rates" must be able to look that rate up like any other: when CR was missing, agents consistently skipped
+    # CR-priced contracts as "no rate available", a reading the data invited.
+    currencies = sorted([*w["fx"], "CR"])
+    base_days = sorted(next(iter(w["fx"].values())))
 
     def rate_history(a):
         cur = _choice("currency", a["currency"], currencies)
         month = _month(a["month"])
+        series = {d: 1.0 for d in base_days} if cur == "CR" else w["fx"][cur]
         return {"currency": cur, "base": "CR", "month": month,
-                "rates": {d: r for d, r in w["fx"][cur].items() if d.startswith(month)}}
+                "rates": {d: r for d, r in series.items() if d.startswith(month)}}
 
     servers["fx_rates"] = (
-        "Daily exchange rates from credits (CR) to other currencies: 1 CR = rate units.", [
+        ("Daily exchange rates from credits (CR), the base currency, to every currency a price can be in: 1 CR = "
+        "rate units. CR itself is listed at 1.0."), [
             tool("fx_rates", "list_currencies", "List the quoted currencies.", [],
                  lambda a: list(currencies), "list[str]"),
             tool("fx_rates", "rate_history", "All daily rates for one currency in one month.",

@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); thi
 
 ## [Unreleased]
 
+### Fixed: synth's `fx_rates` now quotes CR, so CR-priced contracts can be compared
+Tasks that compare contract costs "in credits at that date's rates" include contracts priced in CR, and `fx_rates` listed only the foreign currencies. Agents asked for the CR rate, got an error, and consistently skipped those contracts. In a held-out evaluation, four `shortfall_cost` tasks each reproduced the same wrong total across models, budgets and samples, matching that reading exactly. `fx_rates` now lists CR at 1.0. Tasks, golds and snapshots are unchanged (the golds always used 1.0). The tasks whose gold depends on a CR contract, and whose earlier results may understate a model, are 16 of 20 `shortfall_cost`, 14 of 30 `restock_slow_supplier` and 11 of 30 `order_cheapest_suppliers`.
+
 ### Changed: rlm-harness 1.25.0 → 1.26.0; `TS_*_LM_KWARGS` refuse what the kit refuses
 `TS_ROOT_LM_KWARGS` / `TS_SUB_LM_KWARGS` are now checked at config time by the kit's own rule, applied through the public `RLMConfig` constructor, instead of a copied list. It refuses every key that changes where a run goes or who it calls as: `api_base` (which, with no `base_url` set, silently sent the run to another endpoint), headers, `mock_response`, `engine`, and any `aws_`, `azure_` or `vertex_` key. The kit's other 1.26 additions (`final.outputs`, `parse_wrapped` on a step, `export_counterfactual_extracts`) are optional trace fields and a new exporter; the studio and eval ignore them.
 

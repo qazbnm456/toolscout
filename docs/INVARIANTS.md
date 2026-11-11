@@ -24,6 +24,7 @@
   - The split is BY TEMPLATE, and `heldout_templates` is never trained on.
   - The data regenerates byte-for-byte (`toolscout-synth verify`). Change the generator or a template only together with a regeneration.
   - Shipped tasks don't change. Add tables from their own random stream (`world.generate_ext`) and add templates or levels with their own seeds; never alter how an existing table or an existing template's levels are generated. A new round of tables gets a NEW stream name; bumping `EXT_VERSION` would regenerate every round-2 table. Downstream training and held-out sets are keyed to those tasks, and `test_round_one_tasks_survive_round_two` pins them by digest.
+  - Every value a task needs must be reachable through a tool, never an implicit constant. `fx_rates` once lacked CR (the base currency, rate 1), and agents consistently skipped CR-priced contracts as "no rate available", a reading the data invited. `test_every_contract_currency_has_a_rate` pins it.
   - A reference solver must stay within toolscout's runtime rules, such as the repeat-call guard (at most 3 identical calls). The gold test runs every solver through the real `call_tool`, so a solver that breaks a rule fails there.
   - Fictional entities only, and no security/CVE domain.
   - A `cannot_complete` gold must be a field no table holds, never data outside a covered range: there a tool exists and returns empty, and toolscout's planner declines only when no suitable tool exists.
